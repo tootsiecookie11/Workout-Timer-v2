@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "outline": "#7c7282",
+              "tertiary-container": "#58a6ff",
+              "secondary-dim": "#dcd795",
+              "inverse-surface": "#fff7fe",
+              "surface": "#120b18",
+              "surface-dim": "#120b18",
+              "surface-bright": "#33283c",
+              "surface-variant": "#2c2234",
+              "surface-container-low": "#18101e",
+              "surface-container": "#1f1626",
+              "on-surface-variant": "#b3a7b9",
+              "secondary-fixed-dim": "#dcd795",
+              "surface-container-high": "#251c2d",
+              "on-background": "#f4e6fa",
+              "on-error-container": "#ffa8a3",
+              "tertiary": "#78b4ff",
+              "secondary": "#ebe5a2",
+              "on-surface": "#f4e6fa",
+              "outline-variant": "#4d4554",
+              "on-primary-fixed-variant": "#346c4a",
+              "surface-container-highest": "#2c2234",
+              "primary-container": "#73ad87",
+              "on-error": "#490006",
+              "primary": "#c2ffd3",
+              "inverse-on-surface": "#5b5261",
+              "on-tertiary-container": "#002649",
+              "on-secondary-container": "#d8d391",
+              "primary-dim": "#b4f0c6",
+              "error-dim": "#d7383b",
+              "error-container": "#9f0519",
+              "surface-tint": "#c2ffd3",
+              "surface-container-lowest": "#000000",
+              "secondary-fixed": "#ebe5a2",
+              "inverse-primary": "#326a48",
+              "on-secondary-fixed": "#44410d",
+              "on-secondary-fixed-variant": "#615d28",
+              "tertiary-fixed": "#78b4ff",
+              "primary-fixed": "#bcf9ce",
+              "on-primary-fixed": "#134e2f",
+              "primary-fixed-dim": "#aeebc0",
+              "on-tertiary": "#00315c",
+              "on-primary": "#2d6544",
+              "tertiary-fixed-dim": "#58a6ff",
+              "on-secondary": "#57531f",
+              "error": "#ff716c",
+              "secondary-container": "#4b4815",
+              "on-primary-container": "#002915",
+              "tertiary-dim": "#52a1f9",
+              "on-tertiary-fixed": "#001832",
+              "background": "#120b18",
+              "on-tertiary-fixed-variant": "#003a6b"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Space Grotesk"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        font-family: 'Space Grotesk', sans-serif;
+      }
+      .kinetic-blur {
+        backdrop-filter: blur(40px);
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen selection:bg-primary selection:text-on-primary">
+<!-- Header / Top Bar (Background Content) -->
+<nav class="flex justify-center items-center w-full py-6 px-8 font-['Space_Grotesk'] tracking-tight antialiased bg-[#120b18] dark:bg-[#120b18] opacity-20 pointer-events-none">
+<div class="text-2xl font-bold tracking-tighter text-[#c2ffd3]" style="">Galawgaw</div>
+</nav>
+<!-- Main Content Canvas (Backgrounded) -->
+<main class="max-w-4xl mx-auto px-6 pt-12 opacity-10 pointer-events-none">
+<header class="mb-16">
+<h1 class="text-[3.5rem] font-bold tracking-tight leading-none mb-4" style="">Morning Flow</h1>
+<div class="flex gap-8 items-baseline">
+<div>
+<span class="text-secondary text-sm uppercase tracking-widest block mb-1" style="">Duration</span>
+<span class="text-primary text-3xl font-medium" style="">12:45</span>
+</div>
+<div>
+<span class="text-secondary text-sm uppercase tracking-widest block mb-1" style="">Intensity</span>
+<span class="text-primary text-3xl font-medium" style="">High</span>
+</div>
+</div>
+</header>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="bg-surface-container p-8 rounded-xl h-48"></div>
+<div class="bg-surface-container p-8 rounded-xl h-48"></div>
+<div class="bg-surface-container p-8 rounded-xl h-48"></div>
+</div>
+</main>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-surface-container-lowest/80 kinetic-blur">
+<!-- Modal Card -->
+<div class="w-full max-w-lg bg-[#1a1320] rounded-xl overflow-hidden shadow-[0_0_64px_rgba(120,180,255,0.15)] ring-1 ring-white/5">
+<!-- Modal Header -->
+<div class="px-8 pt-8 pb-4 flex justify-between items-start">
+<div>
+<h2 class="text-2xl font-bold tracking-tight text-on-surface" style="">Edit Exercise</h2>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors" style="">
+<span class="material-symbols-outlined" style="">close</span>
+</button>
+</div>
+<div class="px-8 py-4 space-y-8">
+<!-- Exercise Name Input -->
+<div class="space-y-2">
+<label class="text-secondary text-xs font-bold uppercase tracking-widest ml-1" style="">Exercise Name</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-low border-none rounded-full px-6 py-4 text-on-surface placeholder:text-on-surface-variant/30 focus:ring-2 focus:ring-primary/20 focus:bg-surface-bright transition-all outline-none text-lg font-medium" placeholder="e.g. Kettlebell Swings" type="text" value="Jump Squats"/>
+<span class="absolute right-6 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/40" style="">edit</span>
+</div>
+</div>
+<!-- Type Selection (Tabs) -->
+<div class="space-y-4">
+<label class="text-secondary text-xs font-bold uppercase tracking-widest ml-1" style="">Tracking Metric</label>
+<div class="flex p-1 bg-surface-container-highest rounded-full w-full">
+<button class="flex-1 py-3 px-4 rounded-full bg-tertiary-container text-on-tertiary-container font-bold text-sm transition-all flex items-center justify-center gap-2" style="">
+<span class="material-symbols-outlined" style='font-variation-settings: "FILL" 1;'>timer</span>
+                            Time
+                        </button>
+<button class="flex-1 py-3 px-4 rounded-full text-on-surface-variant font-medium text-sm hover:text-on-surface transition-all flex items-center justify-center gap-2" style="">
+<span class="material-symbols-outlined" style="">numbers</span>
+                            Reps
+                        </button>
+</div>
+</div>
+<!-- Phase Toggle Pill -->
+<div class="space-y-3 flex flex-col items-center w-full">
+<label class="block font-headline text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70">Exercise Phase</label>
+<div class="rounded-full flex gap-1 max-w-[240px]"><div class="py-2 px-8 rounded-full bg-[#58a6ff] text-[#001832] font-bold text-xs uppercase tracking-widest shadow-lg shadow-[#58a6ff]/20">
+      Active
+    </div></div>
+</div>
+<!-- Duration Picker (Conceptual) -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-highest p-6 rounded-lg text-center border border-transparent hover:border-primary/20 transition-all cursor-pointer">
+<span class="text-4xl font-bold text-primary" style="">00</span>
+<span class="block text-xs text-secondary-dim uppercase tracking-widest mt-2" style="">Minutes</span>
+</div>
+<div class="bg-surface-container-highest p-6 rounded-lg text-center border border-transparent hover:border-primary/20 transition-all cursor-pointer">
+<span class="text-4xl font-bold text-primary" style="">45</span>
+<span class="block text-xs text-secondary-dim uppercase tracking-widest mt-2" style="">Seconds</span>
+</div>
+</div>
+</div>
+<!-- Modal Footer / Actions -->
+<div class="p-8 mt-4 flex gap-4 bg-surface-container-low/50">
+<button class="px-8 py-4 rounded-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold shadow-[0_8px_24px_rgba(194,255,211,0.2)] hover:scale-[1.02] active:scale-95 transition-all w-full" style="">
+                    Save Changes</button>
+</div>
+</div>
+</div>
+<!-- Navigation Shell (The Anchor) -->
+<nav class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-2 bg-[#251c2d]/60 backdrop-blur-xl rounded-full px-2 py-2 w-max min-w-[320px] shadow-[0_0_32px_rgba(120,180,255,0.1)] opacity-40">
+<div class="flex items-center gap-2 text-[#f4e6fa] px-6 py-3 transition-colors">
+<span class="material-symbols-outlined" data-icon="timer" style="">timer</span>
+<span class="font-['Space_Grotesk'] text-[12px] font-medium uppercase tracking-widest" style="">Preset Timer</span>
+</div>
+<div class="flex items-center gap-2 bg-[#58a6ff] text-[#120b18] rounded-full px-6 py-3 transition-all duration-300 ease-out">
+<span class="material-symbols-outlined" data-icon="tune" style='font-variation-settings: "FILL" 1;'>tune</span>
+<span class="font-['Space_Grotesk'] text-[12px] font-medium uppercase tracking-widest" style="">Custom</span>
+</div>
+<div class="flex items-center gap-2 text-[#f4e6fa] px-6 py-3 transition-colors">
+<span class="material-symbols-outlined" data-icon="stopwatch" style="">timer</span>
+<span class="font-['Space_Grotesk'] text-[12px] font-medium uppercase tracking-widest" style="">Stopwatch</span>
+</div>
+</nav>
+<!-- Decorative Elements -->
+<div class="fixed top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+<div class="fixed bottom-0 left-0 w-[500px] h-[500px] bg-tertiary/5 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+</body></html>

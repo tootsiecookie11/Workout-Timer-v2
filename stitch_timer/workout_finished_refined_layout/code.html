@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "outline": "#7c7282",
+              "tertiary-container": "#58a6ff",
+              "secondary-dim": "#dcd795",
+              "inverse-surface": "#fff7fe",
+              "surface": "#120b18",
+              "surface-dim": "#120b18",
+              "surface-bright": "#33283c",
+              "surface-variant": "#2c2234",
+              "surface-container-low": "#18101e",
+              "surface-container": "#1f1626",
+              "on-surface-variant": "#b3a7b9",
+              "secondary-fixed-dim": "#dcd795",
+              "surface-container-high": "#251c2d",
+              "on-background": "#f4e6fa",
+              "on-error-container": "#ffa8a3",
+              "tertiary": "#78b4ff",
+              "secondary": "#ebe5a2",
+              "on-surface": "#f4e6fa",
+              "outline-variant": "#4d4554",
+              "on-primary-fixed-variant": "#346c4a",
+              "surface-container-highest": "#2c2234",
+              "primary-container": "#73ad87",
+              "on-error": "#490006",
+              "primary": "#c2ffd3",
+              "inverse-on-surface": "#5b5261",
+              "on-tertiary-container": "#002649",
+              "on-secondary-container": "#d8d391",
+              "primary-dim": "#b4f0c6",
+              "error-dim": "#d7383b",
+              "error-container": "#9f0519",
+              "surface-tint": "#c2ffd3",
+              "surface-container-lowest": "#000000",
+              "secondary-fixed": "#ebe5a2",
+              "inverse-primary": "#326a48",
+              "on-secondary-fixed": "#44410d",
+              "on-secondary-fixed-variant": "#615d28",
+              "tertiary-fixed": "#78b4ff",
+              "primary-fixed": "#bcf9ce",
+              "on-primary-fixed": "#134e2f",
+              "primary-fixed-dim": "#aeebc0",
+              "on-tertiary": "#00315c",
+              "on-primary": "#2d6544",
+              "tertiary-fixed-dim": "#58a6ff",
+              "on-secondary": "#57531f",
+              "error": "#ff716c",
+              "secondary-container": "#4b4815",
+              "on-primary-container": "#002915",
+              "tertiary-dim": "#52a1f9",
+              "on-tertiary-fixed": "#001832",
+              "background": "#120b18",
+              "on-tertiary-fixed-variant": "#003a6b"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Space Grotesk"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #c2ffd3 0%, #ebe5a2 100%);
+        }
+        .vibrant-achievement-gradient {
+            background: linear-gradient(135deg, #c2ffd3 0%, #ebe5a2 50%, #ff716c 100%);
+        }
+        .celebration-glow {
+            background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.4) 0%, rgba(18, 11, 24, 0) 70%);
+        }
+        .sunflower-accent {
+            background: linear-gradient(135deg, #ebe5a2 0%, #d8d391 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary min-h-screen flex flex-col overflow-x-hidden">
+<!-- Updated Navigation Header Shell (Top-Center Aligned Segmented Control) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center py-6 px-12 bg-[#120b18]/80 backdrop-blur-md">
+<div class="absolute left-12 text-2xl font-bold tracking-tighter text-[#c2ffd3] uppercase">Galawgaw</div>
+<div class="flex-1 flex justify-center">
+<nav class="flex items-center bg-[#251c2d] rounded-full p-1 shadow-lg border border-white/5">
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span class="text-xs font-bold uppercase tracking-widest">Preset Timer</span>
+</button>
+<button class="flex items-center gap-2 px-8 py-2.5 rounded-full bg-[#58a6ff] text-[#120b18] shadow-md transition-all cursor-default">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span class="text-xs font-bold uppercase tracking-widest">Custom</span>
+</button>
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span class="text-xs font-bold uppercase tracking-widest">Stopwatch</span>
+</button>
+</nav>
+</div>
+</header>
+<main class="flex-1 flex flex-col items-center justify-center p-6 md:p-12 pt-32 relative">
+<!-- Ambient Celebration Background -->
+<div class="absolute inset-0 celebration-glow pointer-events-none"></div>
+<!-- Main Content Container -->
+<div class="w-full max-w-5xl vibrant-achievement-gradient rounded-lg md:rounded-lg shadow-[0_20px_60px_-15px_rgba(194,255,211,0.3)] p-8 md:p-16 flex flex-col items-center justify-center relative z-10 border border-white/20 overflow-hidden">
+<!-- Abstract background pattern -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="40" id="grid" patternunits="userSpaceOnUse" width="40">
+<path d="M 40 0 L 0 0 0 40" fill="none" stroke="black" stroke-width="1"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+<div class="relative z-20 flex flex-col items-center w-full">
+<!-- Success Header -->
+<div class="text-center mb-12">
+<div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/20 mb-6 border-2 border-white/30 backdrop-blur-md">
+<span class="material-symbols-outlined text-surface text-6xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h1 class="text-5xl md:text-7xl font-headline font-bold tracking-tighter text-surface mb-2">WORKOUT FINISHED</h1>
+<p class="text-surface/80 font-bold tracking-[0.2em] uppercase text-sm">You moved with purpose today.</p>
+</div>
+<!-- Main Summary Bento Grid -->
+<div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Time Card (Large Hero) -->
+<div class="md:col-span-2 backdrop-blur-md rounded-lg p-10 flex flex-col justify-between relative overflow-hidden group border border-white/10 bg-[#2D1E2F]/40"><div class="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-9xl text-surface">timer</span>
+</div>
+<div class="relative flex flex-col items-center justify-center h-full w-full">
+<span class="text-surface/70 text-sm font-bold uppercase tracking-[0.2em] mb-4 absolute top-0 left-0">Total Time</span>
+<div class="flex items-baseline gap-2">
+<span class="text-7xl font-headline font-bold tracking-tighter text-surface">48:22</span>
+<span class="text-surface/80 font-medium text-xl">MIN</span>
+</div>
+</div></div>
+<!-- Stats Vertical Column -->
+<div class="flex flex-col gap-6">
+<!-- Exercises Card -->
+<div class="flex-1 backdrop-blur-md rounded-lg p-8 flex flex-col justify-center border border-white/10 bg-[#2D1E2F]/40">
+<span class="text-surface/70 text-xs font-bold uppercase tracking-widest mb-2 block">Exercises</span>
+<div class="flex items-baseline gap-2">
+<span class="text-5xl font-headline font-bold text-surface">12</span>
+<span class="text-surface/60 text-sm">TOTAL</span>
+</div>
+</div>
+<!-- Sets Card -->
+<div class="flex-1 backdrop-blur-md rounded-lg p-8 flex flex-col justify-center border-l-4 border-tertiary bg-[#2D1E2F]/40">
+<span class="text-surface/70 text-xs font-bold uppercase tracking-widest mb-2 block">Total Sets</span>
+<div class="flex items-baseline gap-2">
+<span class="text-5xl font-headline font-bold text-surface">36</span>
+<span class="text-surface/60 text-sm">COMPLETED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Call to Action -->
+<div class="mt-16 w-full max-w-xs">
+<button class="w-full bg-surface text-primary font-bold py-5 rounded-full text-lg tracking-widest uppercase shadow-2xl hover:bg-surface-bright active:scale-95 transition-all">
+                        Done
+                    </button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

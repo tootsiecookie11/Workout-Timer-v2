@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "midnight-violet": "#2D1E2F",
+              "celadon": "#A9E5BB",
+              "indicator": "#58a6ff",
+              "surface": "#2D1E2F",
+              "on-surface": "#F5F5F5",
+              "primary": "#A9E5BB",
+              "on-primary": "#1A1A1A",
+              "secondary": "#58a6ff",
+              "error": "#FF6B6B",
+              "outline": "#4A3B4D",
+              "surface-container": "#3D2C3F",
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk", "sans-serif"],
+              "body": ["Space Grotesk", "sans-serif"],
+              "label": ["Space Grotesk", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "1rem",
+              "lg": "2rem",
+              "xl": "3rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-glow {
+            text-shadow: 0 0 50px rgba(169, 229, 187, 0.4);
+        }
+        .active-tab-glow {
+            box-shadow: 0 0 20px rgba(88, 166, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-midnight-violet text-on-surface font-body selection:bg-celadon selection:text-on-primary overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center py-6 px-12 bg-midnight-violet/80 backdrop-blur-md">
+<div class="absolute left-12 text-2xl font-bold tracking-tighter text-celadon uppercase font-headline">Galawgaw</div>
+<div class="flex-1 flex justify-center">
+<nav class="flex items-center bg-[#251c2d] rounded-full p-1 shadow-lg border border-white/5">
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span class="text-xs font-bold uppercase tracking-widest font-label">Preset Timer</span>
+</button>
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span class="text-xs font-bold uppercase tracking-widest font-label">Custom</span>
+</button>
+<button class="flex items-center gap-2 px-8 py-2.5 rounded-full bg-[#58a6ff] text-[#120b18] shadow-md transition-all cursor-default font-label">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span class="text-xs font-bold uppercase tracking-widest">Stopwatch</span>
+</button>
+</nav>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="min-h-screen flex flex-col items-center justify-center pt-20 px-6 relative">
+<!-- Background Ambient Element -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-celadon/5 rounded-full blur-[160px]"></div>
+</div>
+<div class="relative w-full max-w-4xl flex flex-col items-center justify-center text-center">
+<!-- StopWatch Display -->
+<div class="relative group">
+<!-- Large Digital Display -->
+<h1 class="font-headline font-light text-[14rem] leading-none text-celadon kinetic-glow tracking-tighter sm:text-[10rem] lg:text-[14rem]" style="">
+                    00:00.<span class="opacity-40" style="">00</span>
+</h1>
+<!-- Status Badge -->
+<div class="mt-12 flex justify-center">
+<div class="inline-flex items-center gap-3 px-8 py-2.5 rounded-full border border-outline/50 bg-surface-container/30 text-celadon font-label text-xs font-bold tracking-[0.2em] uppercase" style="">
+<span class="w-2 h-2 rounded-full bg-celadon animate-pulse shadow-[0_0_10px_#A9E5BB]"></span>
+                        Standby
+                    </div>
+</div>
+</div>
+<!-- Controls Section -->
+<div class="mt-24 w-full max-w-md grid grid-cols-2 gap-12 px-4">
+<!-- Start Button -->
+<button class="group flex flex-col items-center gap-5" style="">
+<div class="w-24 h-24 rounded-full border-2 border-celadon flex items-center justify-center text-celadon group-hover:bg-celadon group-hover:text-midnight-violet transition-all duration-500 shadow-[0_0_40px_rgba(169,229,187,0.15)] group-active:scale-95">
+<span class="material-symbols-outlined text-5xl translate-x-0.5" data-icon="play_arrow" style='font-variation-settings: "FILL" 1;'>play_arrow</span>
+</div>
+<span class="font-label font-bold uppercase tracking-[0.25em] text-[10px] text-on-surface/40 group-hover:text-celadon transition-colors" style="">Start</span>
+</button>
+<!-- Stop Button -->
+<button class="group flex flex-col items-center gap-5" style="">
+<div class="w-24 h-24 rounded-full border-2 border-error/50 flex items-center justify-center text-error group-hover:bg-error group-hover:text-midnight-violet transition-all duration-500 shadow-[0_0_40px_rgba(255,107,107,0.1)] group-active:scale-95">
+<span class="material-symbols-outlined text-5xl" data-icon="stop" style='font-variation-settings: "FILL" 1;'>stop</span>
+</div>
+<span class="font-label font-bold uppercase tracking-[0.25em] text-[10px] text-on-surface/40 group-hover:text-error transition-colors" style="">Stop</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-8 pb-8 pt-4 bg-midnight-violet/90 backdrop-blur-2xl border-t border-outline/20">
+<a class="flex flex-col items-center justify-center text-on-surface/40 p-2 font-label text-[9px] uppercase tracking-widest" href="#" style="">
+<span class="material-symbols-outlined mb-1" data-icon="timer" style="">timer</span>
+<span class="" style="">Presets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface/40 p-2 font-label text-[9px] uppercase tracking-widest" href="#" style="">
+<span class="material-symbols-outlined mb-1" data-icon="add_circle" style="">add_circle</span>
+<span class="" style="">Build</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-celadon text-midnight-violet rounded-full p-4 w-16 h-16 -translate-y-6 shadow-[0_0_30px_rgba(169,229,187,0.4)] transition-transform active:scale-90" href="#" style="">
+<span class="material-symbols-outlined text-3xl" data-icon="play_arrow" style='font-variation-settings: "FILL" 1;'>play_arrow</span>
+</a>
+</nav>
+</body></html>

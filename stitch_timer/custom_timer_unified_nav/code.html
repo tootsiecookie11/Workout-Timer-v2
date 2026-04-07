@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC | Custom Timer Builder</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface": "#2D1E2F", // Midnight Violet
+              "background": "#2D1E2F",
+              "primary": "#A9E5BB", // Celadon
+              "on-primary": "#1A2E22",
+              "secondary": "#FFB86C", // Warm accent for rest
+              "tertiary": "#FF79C6", // Group accent
+              "indicator": "#58a6ff", // Active tab state
+              "surface-container": "#38293B",
+              "surface-container-high": "#433446",
+              "surface-container-low": "#251726",
+              "outline-variant": "rgba(169, 229, 187, 0.1)",
+              "on-surface": "#F8F8F2",
+              "on-surface-variant": "#BD93F9"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {
+              "DEFAULT": "1rem",
+              "lg": "2rem",
+              "xl": "3rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .kinetic-pulse {
+        box-shadow: 0 0 30px rgba(169, 229, 187, 0.3);
+      }
+      body {
+        background-color: #2D1E2F;
+        color: #F8F8F2;
+      }
+      .glass-card {
+        background: rgba(56, 41, 59, 0.7);
+        backdrop-filter: blur(16px);
+      }
+      .active-pill {
+        background-color: #58a6ff !important;
+        color: #FFFFFF !important;
+      }
+    </style>
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center py-6 px-12 bg-[#120b18]/80 backdrop-blur-md">
+<div class="w-full flex items-center justify-center relative"><div class="absolute left-12 text-2xl font-bold tracking-tighter text-[#c2ffd3] uppercase">Galawgaw</div><div class="flex-1 flex justify-center"><nav class="flex items-center bg-[#251c2d] rounded-full p-1 shadow-lg border border-white/5"><button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95"><span class="material-symbols-outlined text-lg">timer</span><span class="text-xs font-bold uppercase tracking-widest">Preset Timer</span></button><button class="flex items-center gap-2 px-8 py-2.5 rounded-full bg-[#58a6ff] text-[#120b18] shadow-md transition-all cursor-default"><span class="material-symbols-outlined text-lg">tune</span><span class="text-xs font-bold uppercase tracking-widest">Custom</span></button><button class="flex items-center gap-2 px-6 py-2.5 rounded-full text-[#f4e6fa]/60 hover:text-[#f4e6fa] transition-all group active:scale-95"><span class="material-symbols-outlined text-lg">timer</span><span class="text-xs font-bold uppercase tracking-widest">Stopwatch</span></button></nav></div></div>
+</header>
+<!-- Main Content Area -->
+<main class="pt-32 pb-32 px-6 max-w-5xl mx-auto">
+<!-- Action Header -->
+<div class="flex flex-col items-center mb-16">
+<button class="group relative px-12 py-5 bg-primary text-on-primary font-black text-lg rounded-full kinetic-pulse hover:scale-105 active:scale-95 transition-all flex items-center space-x-3" style="">
+<span class="material-symbols-outlined font-bold" style='font-variation-settings: "FILL" 1;'>play_arrow</span>
+<span class="font-headline tracking-tight uppercase" style="">Start Workout</span>
+</button>
+</div>
+<!-- Custom Builder Canvas -->
+<div class="space-y-6">
+<!-- Global Set Control -->
+<div class="flex items-center justify-between p-6 bg-surface-container-low rounded-2xl border border-white/5">
+<div class="flex items-center space-x-4">
+<span class="material-symbols-outlined text-primary" style="">repeat</span>
+<span class="font-headline font-bold text-xl uppercase tracking-wider text-on-surface" style="">Total Circuits</span>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 border border-white/10">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high text-primary transition-all" style="">
+<span class="material-symbols-outlined" style="">remove</span>
+</button>
+<input class="w-12 bg-transparent text-center font-headline font-bold text-2xl focus:ring-0 border-none text-on-surface" type="text" value="3"/>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high text-primary transition-all" style="">
+<span class="material-symbols-outlined" style="">add</span>
+</button>
+</div>
+</div>
+<!-- Builder List -->
+<div class="space-y-4">
+<!-- Exercise Card -->
+<div class="group flex items-center p-5 bg-surface-container rounded-2xl hover:bg-surface-container-high transition-all relative border-l-4 border-primary shadow-sm">
+<span class="material-symbols-outlined cursor-grab text-on-surface-variant/40 mr-4 group-hover:text-primary" style="">drag_indicator</span>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline font-bold text-lg text-on-surface" style="">Exercise 1</h3>
+<div class="flex items-center space-x-4">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full font-label uppercase tracking-widest" style="">00:45</span>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-tertiary transition-colors" style="">close</button>
+</div>
+</div>
+<p class="text-on-surface-variant text-sm font-label" style="">Standard set • Maximum intensity</p>
+</div>
+</div>
+<!-- Exercise Card -->
+<div class="group flex items-center p-5 bg-surface-container rounded-2xl hover:bg-surface-container-high transition-all relative border-l-4 border-primary shadow-sm">
+<span class="material-symbols-outlined cursor-grab text-on-surface-variant/40 mr-4 group-hover:text-primary" style="">drag_indicator</span>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline font-bold text-lg text-on-surface" style="">Exercise 2</h3>
+<div class="flex items-center space-x-4">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full font-label uppercase tracking-widest" style="">00:45</span>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-tertiary transition-colors" style="">close</button>
+</div>
+</div>
+<p class="text-on-surface-variant text-sm font-label" style="">Standard set • Focus on form</p>
+</div>
+</div>
+<!-- Rest Card -->
+<div class="group flex items-center p-5 bg-surface-container rounded-2xl hover:bg-surface-container-high transition-all relative border-l-4 border-secondary shadow-sm">
+<span class="material-symbols-outlined cursor-grab text-on-surface-variant/40 mr-4 group-hover:text-secondary" style="">drag_indicator</span>
+<div class="flex-grow">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline font-bold text-lg text-secondary" style="">Rest 1</h3>
+<div class="flex items-center space-x-4">
+<span class="px-3 py-1 bg-secondary/10 text-secondary text-xs font-bold rounded-full font-label uppercase tracking-widest" style="">00:30</span>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-tertiary transition-colors" style="">close</button>
+</div>
+</div>
+<p class="text-on-surface-variant text-sm font-label" style="">Deep breathing • Active recovery</p>
+</div>
+</div>
+<!-- Nested Group -->
+<div class="p-8 bg-surface-container-low/50 rounded-2xl border-2 border-dashed border-white/5 space-y-4">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-tertiary" style="">layers</span>
+<h4 class="font-headline font-black text-xl text-on-surface italic" style="">Group 1 <span class="text-xs font-normal text-on-surface-variant not-italic opacity-60 ml-2" style="">Repeat x2</span></h4>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-tertiary" style="">close</button>
+</div>
+<!-- Inner Exercise -->
+<div class="flex items-center p-4 bg-surface-container rounded-xl border-l-2 border-primary/40">
+<span class="material-symbols-outlined text-xs text-on-surface-variant mr-3" style="">drag_indicator</span>
+<div class="flex-grow flex items-center justify-between">
+<span class="font-headline font-bold text-on-surface" style="">Exercise 3</span>
+<span class="text-xs font-bold text-primary" style="">00:45</span>
+</div>
+</div>
+<!-- Inner Rest -->
+<div class="flex items-center p-4 bg-surface-container rounded-xl border-l-2 border-secondary/40">
+<span class="material-symbols-outlined text-xs text-on-surface-variant mr-3" style="">drag_indicator</span>
+<div class="flex-grow flex items-center justify-between">
+<span class="font-headline font-bold text-secondary" style="">Rest 2</span>
+<span class="text-xs font-bold text-secondary" style="">00:15</span>
+</div>
+</div>
+<!-- Inner Exercise -->
+<div class="flex items-center p-4 bg-surface-container rounded-xl border-l-2 border-primary/40">
+<span class="material-symbols-outlined text-xs text-on-surface-variant mr-3" style="">drag_indicator</span>
+<div class="flex-grow flex items-center justify-between">
+<span class="font-headline font-bold text-on-surface" style="">Exercise 4</span>
+<span class="text-xs font-bold text-primary" style="">00:45</span>
+</div>
+</div>
+<!-- Drop Zone Placeholder -->
+<div class="py-4 border border-dashed border-white/5 rounded-xl flex items-center justify-center text-on-surface-variant/30 text-xs font-bold uppercase tracking-widest" style="">
+                    Drop items here to group
+                </div>
+</div>
+<!-- Empty State -->
+<div class="group py-12 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant/30 hover:border-primary/20 hover:bg-surface-container/20 transition-all">
+<span class="material-symbols-outlined text-4xl mb-2 group-hover:text-primary transition-colors" style="">add_circle</span>
+<span class="font-headline text-sm font-bold uppercase tracking-tighter group-hover:text-primary transition-colors" style="">Drag new blocks into the sequence</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Action FAB & Menu -->
+<div class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
+<!-- Expanded Options -->
+<div class="mb-6 flex space-x-3 transition-all duration-300">
+<button class="flex items-center space-x-2 px-5 py-2.5 bg-surface-container-high border border-white/5 rounded-full text-primary hover:bg-primary hover:text-on-primary transition-all shadow-2xl" style="">
+<span class="material-symbols-outlined text-sm" style="">fitness_center</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Exercise</span>
+</button>
+<button class="flex items-center space-x-2 px-5 py-2.5 bg-surface-container-high border border-white/5 rounded-full text-secondary hover:bg-secondary hover:text-surface transition-all shadow-2xl" style="">
+<span class="material-symbols-outlined text-sm" style="">coffee</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Break</span>
+</button>
+<button class="flex items-center space-x-2 px-5 py-2.5 bg-surface-container-high border border-white/5 rounded-full text-tertiary hover:bg-tertiary hover:text-white transition-all shadow-2xl" style="">
+<span class="material-symbols-outlined text-sm" style="">layers</span>
+<span class="text-xs font-bold uppercase tracking-wider" style="">Group</span>
+</button>
+</div>
+<!-- Main Extended FAB -->
+<button class="flex items-center space-x-3 px-10 py-5 bg-primary text-on-primary rounded-full font-black shadow-[0_15px_40px_rgba(169,229,187,0.4)] hover:scale-105 active:scale-95 transition-all" style="">
+<span class="material-symbols-outlined font-bold" style="">add</span>
+<span class="font-headline tracking-tight uppercase" style="">Add Item</span>
+</button>
+</div>
+<!-- Mobile Navigation -->
+<footer class="md:hidden fixed bottom-0 w-full z-50 bg-surface/90 backdrop-blur-xl flex justify-around items-center px-8 pb-8 pt-4 border-t border-white/5">
+<a class="flex flex-col items-center justify-center text-on-surface/40 p-2" href="#" style="">
+<span class="material-symbols-outlined" style="">timer</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1" style="">Presets</span>
+</a>
+<div class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full p-3 w-14 h-14 -translate-y-6 shadow-[0_0_30px_rgba(169,229,187,0.5)]">
+<span class="material-symbols-outlined font-bold" style="">add</span>
+</div>
+<a class="flex flex-col items-center justify-center text-on-surface/40 p-2" href="#" style="">
+<span class="material-symbols-outlined" style="">play_arrow</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1" style="">Timer</span>
+</a>
+</footer>
+</body></html>

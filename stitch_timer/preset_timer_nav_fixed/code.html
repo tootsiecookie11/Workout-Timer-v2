@@ -1,0 +1,325 @@
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "midnight-violet": "#2D1E2F",
+              "celadon": "#A9E5BB",
+              "indicator": "#58a6ff",
+              "surface-dim": "#1a121c",
+              "secondary-dim": "#eea439",
+              "on-secondary": "#563500",
+              "surface-tint": "#A9E5BB",
+              "primary-fixed": "#A9E5BB",
+              "on-primary-container": "#00291e",
+              "primary-container": "#70ac97",
+              "secondary": "#feb246",
+              "outline": "#797285",
+              "surface-container-low": "#231826",
+              "on-tertiary-fixed": "#3a0005",
+              "on-secondary-fixed": "#4b2e00",
+              "primary": "#A9E5BB",
+              "on-background": "#ede4fa",
+              "on-secondary-fixed-variant": "#714800",
+              "tertiary-container": "#ff6b6b",
+              "secondary-container": "#845400",
+              "surface-bright": "#3d2a40",
+              "tertiary-fixed": "#ff928e",
+              "error": "#ff716c",
+              "surface": "#2D1E2F",
+              "inverse-surface": "#fdf7ff",
+              "inverse-primary": "#2d6957",
+              "on-primary-fixed": "#004535",
+              "inverse-on-surface": "#585264",
+              "on-surface-variant": "#afa8bc",
+              "on-surface": "#ede4fa",
+              "primary-dim": "#9edbc5",
+              "on-secondary-container": "#fff6f0",
+              "surface-container-high": "#36243b",
+              "secondary-fixed": "#ffc882",
+              "on-tertiary-fixed-variant": "#790214",
+              "tertiary": "#ff8481",
+              "on-error-container": "#ffa8a3",
+              "tertiary-dim": "#ff706f",
+              "on-primary-fixed-variant": "#256250",
+              "on-primary": "#195847",
+              "on-error": "#490006",
+              "surface-container-lowest": "#150e17",
+              "surface-variant": "#3d2a40",
+              "secondary-fixed-dim": "#ffb54e",
+              "error-dim": "#d7383b",
+              "background": "#2D1E2F",
+              "outline-variant": "#5a4a5e",
+              "surface-container": "#231826",
+              "primary-fixed-dim": "#9edbc5",
+              "error-container": "#9f0519",
+              "on-tertiary-container": "#440007",
+              "surface-container-highest": "#4a334e",
+              "tertiary-fixed-dim": "#ff7a79",
+              "on-tertiary": "#5c000c"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(45, 30, 47, 0.4);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      }
+      .active-glow {
+        box-shadow: 0 0 50px rgba(169, 229, 187, 0.3);
+      }
+      .carousel-perspective {
+        perspective: 1500px;
+        transform-style: preserve-3d;
+      }
+      .card-stack {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        height: 550px;
+        width: 100%;
+        transform-style: preserve-3d;
+      }
+      .card-item {
+        position: absolute;
+        transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        width: 340px;
+        height: 480px;
+        border-radius: 2rem;
+        pointer-events: none;
+      }
+      /* Center/Active Card */
+      .card-item.active {
+        transform: translate3d(0, 0, 150px);
+        z-index: 30;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      /* Left Flanking Card */
+      .card-item.prev {
+        transform: translate3d(-280px, 0, 0) rotateY(35deg) scale(0.85);
+        z-index: 20;
+        opacity: 0.4;
+        filter: blur(2px);
+      }
+      /* Right Flanking Card */
+      .card-item.next {
+        transform: translate3d(280px, 0, 0) rotateY(-35deg) scale(0.85);
+        z-index: 20;
+        opacity: 0.4;
+        filter: blur(2px);
+      }
+      /* Outer Left Card */
+      .card-item.far-prev {
+        transform: translate3d(-500px, 0, -200px) rotateY(45deg) scale(0.7);
+        z-index: 10;
+        opacity: 0;
+      }
+      /* Outer Right Card */
+      .card-item.far-next {
+        transform: translate3d(500px, 0, -200px) rotateY(-45deg) scale(0.7);
+        z-index: 10;
+        opacity: 0;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .celadon-gradient {
+        background: linear-gradient(135deg, #A9E5BB 0%, #70ac97 100%);
+      }
+    </style>
+</head><body class="bg-midnight-violet font-body text-on-surface selection:bg-celadon selection:text-midnight-violet min-h-screen overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="bg-midnight-violet/80 backdrop-blur-md fixed w-full top-0 z-50">
+<div class="grid grid-cols-3 items-center w-full px-12 py-6 max-w-7xl mx-auto">
+<!-- Logo -->
+<div class="font-headline tracking-tighter text-2xl font-bold text-celadon justify-self-start uppercase">GALAWGAW</div>
+<!-- Centered Pill Tabs -->
+<div class="hidden md:flex items-center justify-self-center bg-surface-container-high/60 p-1 rounded-full border border-white/5 shadow-lg">
+<a class="flex items-center gap-3 px-8 py-2.5 rounded-full bg-[#58a6ff] text-midnight-violet font-bold font-headline text-xs uppercase tracking-widest transition-all duration-300 shadow-md whitespace-nowrap shrink-0" href="#">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">timer</span>
+<span>PRESET TIMER</span>
+</a>
+<a class="flex items-center gap-2 px-8 py-2.5 rounded-full text-on-surface/60 font-bold font-headline text-xs uppercase tracking-widest hover:text-on-surface transition-all duration-300 whitespace-nowrap" href="#">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span>CUSTOM</span>
+</a>
+<a class="flex items-center gap-2 px-8 py-2.5 rounded-full text-on-surface/60 font-bold font-headline text-xs uppercase tracking-widest hover:text-on-surface transition-all duration-300 whitespace-nowrap" href="#">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span>STOPWATCH</span>
+</a>
+</div>
+<!-- Right Spacer -->
+<div class="flex items-center justify-self-end">
+<div class="w-10"></div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-32 pb-32 min-h-screen flex flex-col items-center justify-center px-6">
+<!-- Section Header -->
+<header class="text-center mb-16 space-y-2">
+<h1 class="font-headline text-5xl md:text-7xl font-bold tracking-tighter leading-tight text-on-surface uppercase" style="">
+            CHOOSE YOUR <br/> <span class="text-celadon italic" style="">INTENSITY</span>
+</h1>
+</header>
+<!-- Carousel Container -->
+<div class="relative w-full max-w-6xl carousel-perspective mt-8">
+<div class="card-stack">
+<!-- TABATA Card -->
+<div class="card-item far-prev glass-card border border-outline-variant/30 flex flex-col p-8">
+<div class="flex justify-between items-start mb-10">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl" style="">timer_10_alt</span>
+</div>
+<h3 class="font-headline text-4xl font-black text-on-surface mb-4 leading-none" style="">TABATA</h3>
+<p class="text-on-surface-variant font-medium leading-relaxed mb-auto" style="">High-Intensity Interval Training</p>
+<div class="bg-surface-container-high/40 p-5 rounded-full border border-outline-variant/10">
+<p class="text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2" style="">Parameters</p>
+<p class="text-on-surface/80 font-medium" style="">20s work, 10s rest, 8 rounds</p>
+</div>
+</div>
+<!-- LADDER Card -->
+<div class="card-item prev glass-card border border-outline-variant/30 flex flex-col p-8">
+<div class="flex justify-between items-start mb-10">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl" style="">stairs</span>
+<span class="material-symbols-outlined text-on-surface-variant/40 text-2xl" style="">trending_up</span>
+</div>
+<h3 class="font-headline text-4xl font-black text-on-surface mb-4 leading-none" style="">LADDER</h3>
+<p class="text-on-surface-variant font-medium leading-relaxed mb-auto" style="">Ascending 1-10 Reps</p>
+<div class="bg-surface-container-high/40 p-5 rounded-full border border-outline-variant/10">
+<p class="text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2" style="">Parameters</p>
+<p class="text-on-surface/80 font-medium" style="">+1 rep per round</p>
+</div>
+<button class="mt-8 w-full py-4 bg-surface-container-highest text-on-surface/60 font-black rounded-full tracking-widest uppercase text-xs" style="">Preview Flow</button>
+</div>
+<!-- EMOM Card (Active) -->
+<div class="card-item active glass-card border-2 border-celadon active-glow flex flex-col p-10 relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-b from-celadon/10 to-transparent opacity-50"></div>
+<div class="absolute top-4 right-4 bg-celadon text-midnight-violet font-bold px-4 py-1 rounded-full text-[10px] tracking-tighter transform rotate-3 z-20" style="">
+                    POPULAR
+                </div>
+<div class="relative h-full flex flex-col">
+<div>
+<h3 class="font-headline text-5xl font-extrabold tracking-tighter mb-4 text-on-surface" style="">EMOM</h3>
+<p class="text-on-surface-variant text-base leading-relaxed mb-8" style="">Every Minute on the Minute. Develop consistent power and recovery rhythms.</p>
+</div>
+<div class="space-y-8 bg-surface-container-high/60 p-6 rounded-full border border-outline-variant/20 mb-auto">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-1">
+<span class="text-[10px] text-celadon uppercase tracking-widest font-bold" style="">Duration</span>
+<div class="flex items-baseline gap-1">
+<span class="text-3xl font-bold tracking-tighter text-on-surface" style="">15</span>
+<span class="text-sm text-on-surface-variant font-headline" style="">MIN</span>
+</div>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] text-celadon uppercase tracking-widest font-bold" style="">Interval</span>
+<div class="flex items-baseline gap-1">
+<span class="text-3xl font-bold tracking-tighter text-on-surface" style="">01</span>
+<span class="text-sm text-on-surface-variant font-headline" style="">MIN</span>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant uppercase tracking-widest font-medium" style="">Difficulty</span>
+<span class="text-xs text-celadon font-bold" style="">ADVANCED</span>
+</div>
+<div class="w-full h-1 bg-surface-container flex rounded-full overflow-hidden">
+<div class="w-4/5 h-full bg-celadon"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-5 rounded-full celadon-gradient text-midnight-violet font-black text-lg tracking-tight active:scale-95 transition-transform flex items-center justify-center gap-3 shadow-lg shadow-celadon/20" style="">
+                        START WORKOUT
+                        <span class="material-symbols-outlined font-bold" style="">play_arrow</span>
+</button>
+</div>
+</div>
+<!-- AMRAP Card -->
+<div class="card-item next glass-card border border-outline-variant/30 flex flex-col p-8">
+<div class="flex justify-between items-start mb-10">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl" style="">sync</span>
+<span class="material-symbols-outlined text-on-surface-variant/40 text-2xl" style="">emoji_events</span>
+</div>
+<h3 class="font-headline text-4xl font-black text-on-surface mb-4 leading-none" style="">AMRAP</h3>
+<p class="text-on-surface-variant font-medium leading-relaxed mb-auto" style="">As Many Rounds As Possible</p>
+<div class="bg-surface-container-high/40 p-5 rounded-full border border-outline-variant/10">
+<p class="text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2" style="">Parameters</p>
+<p class="text-on-surface/80 font-medium" style="">12m time cap, continuous</p>
+</div>
+<button class="mt-8 w-full py-4 bg-surface-container-highest text-on-surface/60 font-black rounded-full tracking-widest uppercase text-xs" style="">Preview Flow</button>
+</div>
+<!-- CUSTOM Card -->
+<div class="card-item far-next glass-card border border-outline-variant/30 flex flex-col p-8">
+<div class="flex justify-between items-start mb-10">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl" style="">edit_note</span>
+</div>
+<h3 class="font-headline text-4xl font-black text-on-surface mb-4 leading-none" style="">CUSTOM</h3>
+<p class="text-on-surface-variant font-medium leading-relaxed mb-auto" style="">Build Your Own Protocol</p>
+<div class="bg-surface-container-high/40 p-5 rounded-full border border-outline-variant/10">
+<p class="text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2" style="">Parameters</p>
+<p class="text-on-surface/80 font-medium" style="">User defined structure</p>
+</div>
+</div>
+</div>
+<!-- Carousel Navigation Controls -->
+<div class="absolute top-1/2 -translate-y-1/2 w-full flex justify-between px-0 md:-px-12 z-50 pointer-events-none">
+<button class="w-14 h-14 rounded-full bg-surface-container-high/40 backdrop-blur-xl border border-outline-variant/30 flex items-center justify-center text-on-surface pointer-events-auto hover:bg-celadon/20 hover:border-celadon hover:text-celadon transition-all group -translate-x-1/2" style="">
+<span class="material-symbols-outlined text-3xl" style="">chevron_left</span>
+</button>
+<button class="w-14 h-14 rounded-full bg-surface-container-high/40 backdrop-blur-xl border border-outline-variant/30 flex items-center justify-center text-on-surface pointer-events-auto hover:bg-celadon/20 hover:border-celadon hover:text-celadon transition-all group translate-x-1/2" style="">
+<span class="material-symbols-outlined text-3xl" style="">chevron_right</span>
+</button>
+</div>
+<!-- Carousel Indicators -->
+<div class="flex justify-center items-center gap-3 mt-16">
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+<div class="w-8 h-1.5 bg-celadon rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Responsive) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-8 pb-6 pt-2 bg-midnight-violet/80 backdrop-blur-xl border-t border-[#ede4fa]/10 shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+<div class="flex flex-col items-center justify-center text-celadon p-2">
+<span class="material-symbols-outlined text-2xl" style='font-variation-settings: "FILL" 1;'>timer</span>
+<span class="font-body text-[10px] uppercase tracking-widest mt-1" style="">Presets</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-celadon text-midnight-violet rounded-full p-3 w-14 h-14 -translate-y-4 shadow-[0_0_20px_rgba(169,229,187,0.4)] active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-3xl" style='font-variation-settings: "FILL" 1;'>add_circle</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#ede4fa]/40 p-2">
+<span class="material-symbols-outlined text-2xl" style="">play_arrow</span>
+<span class="font-body text-[10px] uppercase tracking-widest mt-1" style="">Timer</span>
+</div>
+</nav>
+<!-- Decoration Element (Background Radial Glow) -->
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-celadon/5 rounded-full blur-[140px] -z-10 pointer-events-none"></div>
+</body></html>
