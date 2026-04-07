@@ -1,0 +1,29 @@
+version: "2"
+type: frontend
+tech_stack:
+  - TypeScript
+  - React
+  - Vite
+  - Tailwind CSS
+  - Zustand
+routes:
+  - path: /
+    file: src/App.tsx
+    auth_required: false
+    description: Default homepage holding timer UI
+features:
+  - name: Timer Engine Core
+    description: Zustand-based delta-time engine and smart queue generator
+    files:
+      - src/store/engine.ts
+      - src/lib/queue-generator.ts
+      - src/types/workout.ts
+    entry_route: /
+    user_interactions:
+      - Start session
+      - Pause session
+      - Resume session
+      - Advance to next step
+    api_calls: []
+    auth_required: false
+known_limitations: []

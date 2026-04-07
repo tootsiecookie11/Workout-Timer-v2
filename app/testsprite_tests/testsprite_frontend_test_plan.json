@@ -1,0 +1,262 @@
+[
+  {
+    "id": "TC001",
+    "title": "Run a session end-to-end from preview to completion",
+    "description": "Verifies a user can generate a queue preview, start the session, observe step progression, and reach a completed session state.",
+    "category": "Timer Engine Core",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview"
+      },
+      {
+        "type": "action",
+        "description": "Start the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait for a short period"
+      },
+      {
+        "type": "action",
+        "description": "Advance to the next step"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the session to finish"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a session completion event is shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Pause and resume without losing timing continuity",
+    "description": "Verifies pausing stops ticks and resuming continues timing from a corrected elapsed/remaining time without drift or jumps.",
+    "category": "Timer Engine Core",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview"
+      },
+      {
+        "type": "action",
+        "description": "Start the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait for a short period"
+      },
+      {
+        "type": "action",
+        "description": "Pause the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait for a short period"
+      },
+      {
+        "type": "action",
+        "description": "Resume the session"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a session resumed event is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify elapsed and remaining time continue changing after resume"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Start session from preview and consume the same ordered queue",
+    "description": "Verifies starting from the preview runs the session in the same step order as shown in the preview list.",
+    "category": "Smart Queue Generator & Preview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview"
+      },
+      {
+        "type": "action",
+        "description": "Record the first two steps shown in the preview order"
+      },
+      {
+        "type": "action",
+        "description": "Start the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the first step to start"
+      },
+      {
+        "type": "action",
+        "description": "Advance to the next step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the running step sequence matches the preview order for the first two steps"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Advance mid-step starts the next step immediately",
+    "description": "Verifies advancing during an active step ends the current step and immediately starts the next step with timing reset for the new step.",
+    "category": "Timer Engine Core",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview"
+      },
+      {
+        "type": "action",
+        "description": "Start the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait for a short period"
+      },
+      {
+        "type": "action",
+        "description": "Advance to the next step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a step start event is shown for the newly active step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the elapsed time for the new step is near the beginning"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Generate and display an ordered preview list with step metadata",
+    "description": "Verifies the smart queue generator produces an ordered list and the preview renders step labels, types, and durations.",
+    "category": "Smart Queue Generator & Preview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an ordered list of queued steps is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each listed step shows identifying metadata including a label, type, and duration"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Show empty state when starting with no queued steps",
+    "description": "Verifies attempting to start without any queued steps shows an empty state and no session begins.",
+    "category": "Timer Engine Core",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to start the session"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is visible indicating there are no steps to run"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the session does not enter a running state"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Conditional blocks evaluate at runtime and affect realized next steps",
+    "description": "Verifies conditional evaluation occurs at step execution time and changes the realized step sequence shown during playback.",
+    "category": "Smart Queue Generator & Preview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview that includes conditional blocks"
+      },
+      {
+        "type": "action",
+        "description": "Start the session"
+      },
+      {
+        "type": "action",
+        "description": "Wait until execution reaches the conditional step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a conditional evaluation outcome is shown when the conditional step starts"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the subsequent realized step sequence reflects the conditional outcome"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC008",
+    "title": "Preview marks conditional steps as deferred evaluation",
+    "description": "Verifies when the preview includes conditional blocks, the preview indicates those steps are deferred for runtime evaluation.",
+    "category": "Smart Queue Generator & Preview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Request a queue preview that includes conditional blocks"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify conditional steps are marked as deferred evaluation in the preview"
+      }
+    ],
+    "priority": "Medium"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5173",
+  "loginUser": "test@example.com",
+  "loginPassword": "password123",
+  "executionArgs": {
+    "projectName": "app",
+    "projectPath": "c:\\Users\\wintermel\\Desktop\\Antigravity\\Workout Timer v2\\app",
+    "testIds": [],
+    "additionalInstruction": "",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user--c9jdQXetH_Fax87jvEPgMXQbGACtv1-ozYLJ1Avku8GEovrIxUftL1HNzw6NRlveHKDhkykT1B1jsdEZX2N36VhmGkzag3-6vSD8w-2GjVJnHTsp1YJN-dH8zPpSGmKb3g"
+    }
+  },
+  "serverPort": 3709,
+  "proxy": "http://d72e4ae6-5623-4657-b364-f5b7f839098d:xQZf3EmBuisEP3EojAD3hqRNhdFfPqau@tun.testsprite.com:8080"
+}
