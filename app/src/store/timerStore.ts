@@ -35,6 +35,8 @@ interface TimerState {
   // ── Transition overlay ───────────────────────────────────────────────────
   transitionVisible: boolean;
   transitionToStep: WorkoutStep | null;
+  transitionFromStep: WorkoutStep | null;
+  transitionContext: 'to-first' | 'to-work' | 'to-rest' | null;
 
   // ── Stopwatch ─────────────────────────────────────────────────────────────
   laps: LapRecord[];
@@ -92,15 +94,24 @@ export const useTimerStore = create<TimerState>((set, get) => {
         set({ countdownSeconds: (event.data as CountdownTickPayload).remaining_seconds });
         break;
 
-      case 'transition:start':
+      case 'transition:start': {
+        const ctx: 'to-first' | 'to-work' | 'to-rest' =
+          event.data.to_step.type === 'rest'
+            ? 'to-rest'
+            : event.data.from_step === null
+              ? 'to-first'
+              : 'to-work';
+        const dismissMs = ctx === 'to-rest' ? 1400 : 900;
         set({
           countdownSeconds: null,
           transitionVisible: true,
           transitionToStep: event.data.to_step,
+          transitionFromStep: event.data.from_step,
+          transitionContext: ctx,
         });
-        // Auto-dismiss transition overlay after 600ms
-        setTimeout(() => set({ transitionVisible: false }), 600);
+        setTimeout(() => set({ transitionVisible: false, transitionContext: null }), dismissMs);
         break;
+      }
 
       case 'step:start':
         set({
@@ -160,6 +171,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
     countdownSeconds: null,
     transitionVisible: false,
     transitionToStep: null,
+    transitionFromStep: null,
+    transitionContext: null,
     laps: [],
     customIntervals: [],
     sessionResult: null,

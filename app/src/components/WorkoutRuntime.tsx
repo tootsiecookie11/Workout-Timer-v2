@@ -104,12 +104,35 @@ export default function WorkoutRuntime() {
           </h1>
         </div>
 
-        {/* Timer */}
-        <TimerDisplay
-          ms={currentStep?.duration_ms === 0 ? elapsed_ms : remaining_ms}
-          size="xl"
-          glowColor={isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)'}
-        />
+        {/* Timer + paused badge */}
+        <div className="relative flex flex-col items-center">
+          <style>{`
+            @keyframes pausePulse {
+              0%, 100% { opacity: 0.35; }
+              50%       { opacity: 0.75; }
+            }
+          `}</style>
+          {isPaused && (
+            <span
+              className="absolute -top-5 font-display font-bold uppercase"
+              style={{
+                fontSize: '0.58rem',
+                letterSpacing: '0.35em',
+                color: 'var(--color-brand-text-muted)',
+                animation: 'pausePulse 2s ease-in-out infinite',
+              }}
+              aria-live="polite"
+            >
+              Paused
+            </span>
+          )}
+          <TimerDisplay
+            ms={currentStep?.duration_ms === 0 ? elapsed_ms : remaining_ms}
+            size="xl"
+            glowColor={isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)'}
+            dimmed={isPaused}
+          />
+        </div>
 
         {/* Progress arc (step-level) */}
         {currentStep && currentStep.duration_ms > 0 && (
