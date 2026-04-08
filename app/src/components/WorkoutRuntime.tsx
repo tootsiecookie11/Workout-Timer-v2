@@ -1,5 +1,6 @@
 import { useTimerStore } from '../store/timerStore';
 import TimerDisplay from './TimerDisplay';
+import { useNotionPoller } from '../hooks/useNotionPoller';
 
 function StepTypeChip({ type }: { type: string }) {
   const isRest = type === 'rest';
@@ -18,6 +19,7 @@ function StepTypeChip({ type }: { type: string }) {
 }
 
 export default function WorkoutRuntime() {
+  const isDirty = useNotionPoller();
   const currentStep = useTimerStore((s) => s.currentStep);
   const nextStepLabel = useTimerStore((s) => s.nextStepLabel);
   const remaining_ms = useTimerStore((s) => s.remaining_ms);
@@ -128,7 +130,7 @@ export default function WorkoutRuntime() {
           </div>
         )}
 
-        {/* Next up */}
+      {/* Next up */}
         {nextStepLabel && (
           <p
             className="text-xs font-medium"
@@ -138,6 +140,30 @@ export default function WorkoutRuntime() {
           </p>
         )}
       </div>
+
+      {/* Dirty State Warning Toast */}
+      {isDirty && (
+        <div 
+          className="mx-auto mb-4 w-full max-w-sm rounded-xl p-3 flex items-center justify-between shadow-lg"
+          style={{
+            background: 'rgba(255,132,129,0.15)',
+            border: '1px solid var(--color-brand-tertiary)',
+            color: 'var(--color-brand-tertiary)'
+          }}
+        >
+          <div className="flex items-center gap-3">
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+               <line x1="12" y1="9" x2="12" y2="13"/>
+               <line x1="12" y1="17" x2="12.01" y2="17"/>
+             </svg>
+             <div className="flex flex-col text-left">
+               <span className="text-sm font-bold uppercase tracking-wider">Reload Required</span>
+               <span className="text-xs opacity-80">Workout updated in Notion</span>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-6 pt-4">

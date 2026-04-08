@@ -7,12 +7,22 @@ const MODES: { id: TimerMode; label: string; icon: string }[] = [
   { id: 'stopwatch', label: 'Stopwatch', icon: 'M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z' },
 ];
 
+import { connectNotionOAuth } from '../lib/supabase';
+
 export default function Navigation() {
   const mode = useTimerStore((s) => s.mode);
   const engineState = useTimerStore((s) => s.engineState);
   const setMode = useTimerStore((s) => s.setMode);
 
   const locked = engineState === 'ACTIVE' || engineState === 'PAUSED';
+
+  const handleConnectNotion = async () => {
+    try {
+      await connectNotionOAuth();
+    } catch (err) {
+      console.warn("OAuth mock or unconfigured", err);
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 md:px-10">
@@ -65,8 +75,20 @@ export default function Navigation() {
         })}
       </nav>
 
-      {/* Spacer to balance layout */}
-      <div className="w-24 hidden md:block" aria-hidden="true" />
+      <button 
+        onClick={handleConnectNotion}
+        className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all"
+        style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          color: 'var(--color-text-secondary)'
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 4h16v16H4V4zm2 4v10h12V8H6z" />
+        </svg>
+        Connect Notion
+      </button>
     </header>
   );
 }

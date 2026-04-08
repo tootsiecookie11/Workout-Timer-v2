@@ -111,7 +111,21 @@ export default function WorkoutComplete() {
         {/* Actions */}
         <div className="w-full flex flex-col gap-3">
           <button
-            onClick={endSession}
+            onClick={() => {
+              if (mode === 'preset' && sessionResult) {
+                // Workstream 3: Queue session for offline IndexedDB sync
+                import('../lib/sync').then(({ queueSessionForSync }) => {
+                  queueSessionForSync({
+                    workout_id: 'active_workout_placeholder_id', // Would come from selected workout metadata
+                    date: new Date().toISOString(),
+                    pre_readiness_score: 5, // Placeholder, would come from pre-workout modal
+                    post_fatigue_score: 7,  // Placeholder
+                    completion_ratio: Math.round((stepsCompleted / Math.max(1, stepsCompleted + stepsSkipped)) * 100)
+                  });
+                });
+              }
+              endSession();
+            }}
             className="w-full py-4 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all duration-300 active:scale-98"
             style={{
               background: 'var(--color-brand-primary)',

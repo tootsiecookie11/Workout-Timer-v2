@@ -6,15 +6,15 @@
   "loginUser": "test@example.com",
   "loginPassword": "password123",
   "executionArgs": {
-    "projectName": "app",
+    "projectName": "Workout Timer v2",
     "projectPath": "c:\\Users\\wintermel\\Desktop\\Antigravity\\Workout Timer v2\\app",
     "testIds": [],
-    "additionalInstruction": "",
+    "additionalInstruction": "Focus strictly on generating and executing Vitest unit tests for the core engine algorithms: 1) Smart Queue Generator in app/src/lib/queue-generator.ts, and 2) Delta-based Engine logic in app/src/store/engine.ts and timerStore.ts. Simulate edge cases like tab suspension, circuit/superset flattening, etc.",
     "serverMode": "development",
     "envs": {
       "API_KEY": "sk-user--c9jdQXetH_Fax87jvEPgMXQbGACtv1-ozYLJ1Avku8GEovrIxUftL1HNzw6NRlveHKDhkykT1B1jsdEZX2N36VhmGkzag3-6vSD8w-2GjVJnHTsp1YJN-dH8zPpSGmKb3g"
     }
   },
-  "serverPort": 3709,
+  "serverPort": 9940,
   "proxy": "http://d72e4ae6-5623-4657-b364-f5b7f839098d:xQZf3EmBuisEP3EojAD3hqRNhdFfPqau@tun.testsprite.com:8080"
 }
