@@ -122,7 +122,7 @@ export type AudioCueId =
 
 // ─── Timer Modes ─────────────────────────────────────────────────────────────
 
-export type TimerMode = 'preset' | 'custom' | 'stopwatch';
+export type TimerMode = 'preset' | 'custom' | 'stopwatch' | 'program';
 
 // ─── Stopwatch ────────────────────────────────────────────────────────────────
 

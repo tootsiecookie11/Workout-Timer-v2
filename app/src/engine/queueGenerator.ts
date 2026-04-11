@@ -153,13 +153,17 @@ export function generateQueueFromCustom(intervals: CustomInterval[]): WorkoutSte
     label: interval.label,
     rounds: interval.rounds,
     children: [
-      {
-        id: `${interval.id}_work`,
-        type: 'exercise' as const,
-        label: interval.label,
-        duration_ms: interval.work_ms,
-        audio_cue: 'beep_start' as const,
-      },
+      ...(interval.work_ms > 0
+        ? [
+            {
+              id: `${interval.id}_work`,
+              type: 'exercise' as const,
+              label: interval.label,
+              duration_ms: interval.work_ms,
+              audio_cue: 'beep_start' as const,
+            },
+          ]
+        : []),
       ...(interval.rest_ms > 0
         ? [
             {

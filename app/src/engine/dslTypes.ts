@@ -1,5 +1,10 @@
 import type { WorkoutBlock } from './types';
 
+// ─── Source Spans ─────────────────────────────────────────────────────────────
+
+/** Character-offset range within a DSL source string. */
+export interface Span { start: number; end: number }
+
 // ─── DSL AST ──────────────────────────────────────────────────────────────────
 
 export type CompareOp = '>=' | '<=' | '>' | '<' | '==' | '!=';
@@ -9,6 +14,8 @@ export type Operand =
   | { kind: 'mod';         name: string; divisor: number }
   | { kind: 'num';         value: number }
   | { kind: 'str';         value: string }
+  | { kind: 'bool';        value: boolean }
+  | { kind: 'null' }
   | { kind: 'duration_ms'; ms: number };
 
 export type ASTNode =
@@ -16,27 +23,41 @@ export type ASTNode =
   | { kind: 'cmp';   op: CompareOp; left: Operand; right: Operand }
   | { kind: 'and';   left: ASTNode; right: ASTNode }
   | { kind: 'or';    left: ASTNode; right: ASTNode }
-  | { kind: 'not';   expr: ASTNode };
+  | { kind: 'not';   expr: ASTNode }
+  /** Set-membership: operand in [item, item, ...] */
+  | { kind: 'in';    operand: Operand; items: Operand[] };
 
 // ─── Evaluation Context ───────────────────────────────────────────────────────
 
 /**
  * Runtime values available to DSL condition expressions.
  *
- * | Variable | Meaning                                  |
- * |----------|------------------------------------------|
- * | reps     | Reps completed in the current step       |
- * | time     | Elapsed ms in the current step           |
- * | round    | Current round index (1-based)            |
- * | set      | Current set index (1-based)              |
- * | user     | Last user_choice string, or null         |
+ * | Variable      | Meaning                                           |
+ * |---------------|---------------------------------------------------|
+ * | reps          | Reps completed in the current step                |
+ * | time          | Elapsed ms in the current step                    |
+ * | round         | Current round index (1-based)                     |
+ * | set           | Current set index (1-based)                       |
+ * | user          | Last user_choice string, or null                  |
+ * | elapsed_ms    | Total session elapsed ms                          |
+ * | remaining_ms  | Current step remaining ms                         |
+ * | lap           | Lap count (stopwatch mode)                        |
+ * | fatigue_score | 0–10 computed from Notion session history          |
+ * | readiness     | 0–10 user self-report at session start (optional) |
  */
 export interface EvalContext {
-  reps:  number;
-  time:  number;
-  round: number;
-  set:   number;
-  user:  string | null;
+  reps:           number;
+  time:           number;
+  round:          number;
+  set:            number;
+  user:           string | null;
+  elapsed_ms?:    number;
+  remaining_ms?:  number;
+  lap?:           number;
+  /** 0–10: higher = more fatigued. Fed from Notion session history via fatigueEngine. */
+  fatigue_score?: number;
+  /** 0–10: user-reported readiness collected before session start. */
+  readiness?:     number;
 }
 
 // ─── Graph Types ──────────────────────────────────────────────────────────────

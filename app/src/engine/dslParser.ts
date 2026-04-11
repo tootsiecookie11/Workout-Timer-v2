@@ -6,96 +6,221 @@
  *   or_expr    = and_expr ('||' and_expr)*
  *   and_expr   = unary ('&&' unary)*
  *   unary      = '!' unary | primary
- *   primary    = '(' expr ')' | 'always' | operand cmp_op operand
- *   operand    = ident ('%' number)? | number | duration | string
+ *   primary    = '(' expr ')' | 'always' | operand ('in' '[' items ']' | cmp_op operand)
+ *   items      = operand (',' operand)*
+ *   operand    = ident ('%' number)? | number | float | duration | string | 'true' | 'false' | 'null'
  *   cmp_op     = '>=' | '<=' | '>' | '<' | '==' | '!='
- *   duration   = number 's'   -- converted to milliseconds
+ *   duration   = number ('s' | 'm' | 'h')  -- converted to milliseconds
+ *                30s → 30000 | 2m → 120000 | 1h → 3600000
  *
- * Supported variables: reps, time, round, set, user
- * Duration literals: 30s → 30000ms
+ * Supported variables: reps, time, round, set, user, elapsed_ms, remaining_ms, lap
  */
 
 import type { ASTNode, Operand, CompareOp, EvalContext } from './dslTypes';
+import type { Span } from './dslTypes';
 
-// ─── Tokenizer ────────────────────────────────────────────────────────────────
+// ─── DSLError ─────────────────────────────────────────────────────────────────
+
+/**
+ * Thrown by parseDSL on malformed input. Extends SyntaxError so existing
+ * `toThrow(SyntaxError)` assertions continue to pass.
+ *
+ * @example
+ * try { parseDSL('reps @@ 5') }
+ * catch (e) {
+ *   if (e instanceof DSLError) console.log(e.pretty());
+ * }
+ */
+export class DSLError extends SyntaxError {
+  readonly span: Span;
+  readonly source: string;
+
+  constructor(message: string, source: string, span: Span) {
+    super(message);
+    this.name = 'DSLError';
+    this.source = source;
+    this.span = span;
+  }
+
+  /**
+   * Returns a multi-line string with the source excerpt and a caret
+   * pointing at the error location — ready to print to a console or UI.
+   *
+   * @example
+   * DSL Error: Unexpected character '@'
+   *   reps @@ 5
+   *       ^
+   */
+  pretty(): string {
+    const excerpt = '  ' + this.source;
+    const caretLen = Math.max(1, this.span.end - this.span.start);
+    const caret = '  ' + ' '.repeat(this.span.start) + '^'.repeat(caretLen);
+    return `DSL Error: ${this.message}\n${excerpt}\n${caret}`;
+  }
+}
+
+// ─── Token Types ──────────────────────────────────────────────────────────────
 
 type TokenType =
-  | 'IDENT' | 'NUMBER' | 'STRING' | 'DURATION'
+  | 'IDENT' | 'NUMBER' | 'FLOAT' | 'STRING' | 'DURATION'
   | 'GTE' | 'LTE' | 'GT' | 'LT' | 'EQ' | 'NEQ'
   | 'AND' | 'OR' | 'NOT' | 'MOD'
   | 'LPAREN' | 'RPAREN'
-  | 'ALWAYS' | 'EOF';
+  | 'LBRACKET' | 'RBRACKET' | 'COMMA'
+  | 'ALWAYS' | 'IN' | 'TRUE' | 'FALSE' | 'NULL'
+  | 'EOF';
 
 interface Token {
   type: TokenType;
   value: string;
-  pos: number;
+  span: Span;
 }
 
-function tokenize(input: string): Token[] {
+// ─── Tokenizer ────────────────────────────────────────────────────────────────
+
+const KEYWORDS: Record<string, TokenType> = {
+  always: 'ALWAYS',
+  in:     'IN',
+  true:   'TRUE',
+  false:  'FALSE',
+  null:   'NULL',
+};
+
+const DURATION_SUFFIXES = new Set(['s', 'm', 'h']);
+
+function tokenize(src: string): Token[] {
   const tokens: Token[] = [];
-  const src = input.trim();
   let i = 0;
 
+  function tok(type: TokenType, value: string, start: number): Token {
+    return { type, value, span: { start, end: i } };
+  }
+
   while (i < src.length) {
+    // Skip whitespace
     if (/\s/.test(src[i])) { i++; continue; }
+
+    const start = i;
 
     // Two-char operators (must check before single-char)
     const two = src.slice(i, i + 2);
-    if (two === '>=') { tokens.push({ type: 'GTE', value: '>=', pos: i }); i += 2; continue; }
-    if (two === '<=') { tokens.push({ type: 'LTE', value: '<=', pos: i }); i += 2; continue; }
-    if (two === '==') { tokens.push({ type: 'EQ',  value: '==', pos: i }); i += 2; continue; }
-    if (two === '!=') { tokens.push({ type: 'NEQ', value: '!=', pos: i }); i += 2; continue; }
-    if (two === '&&') { tokens.push({ type: 'AND', value: '&&', pos: i }); i += 2; continue; }
-    if (two === '||') { tokens.push({ type: 'OR',  value: '||', pos: i }); i += 2; continue; }
+    if (two === '>=') { i += 2; tokens.push(tok('GTE', '>=', start)); continue; }
+    if (two === '<=') { i += 2; tokens.push(tok('LTE', '<=', start)); continue; }
+    if (two === '==') { i += 2; tokens.push(tok('EQ',  '==', start)); continue; }
+    if (two === '!=') { i += 2; tokens.push(tok('NEQ', '!=', start)); continue; }
+    if (two === '&&') { i += 2; tokens.push(tok('AND', '&&', start)); continue; }
+    if (two === '||') { i += 2; tokens.push(tok('OR',  '||', start)); continue; }
 
-    // Single-char operators
     const ch = src[i];
-    if (ch === '>') { tokens.push({ type: 'GT',     value: '>',  pos: i }); i++; continue; }
-    if (ch === '<') { tokens.push({ type: 'LT',     value: '<',  pos: i }); i++; continue; }
-    if (ch === '!') { tokens.push({ type: 'NOT',    value: '!',  pos: i }); i++; continue; }
-    if (ch === '%') { tokens.push({ type: 'MOD',    value: '%',  pos: i }); i++; continue; }
-    if (ch === '(') { tokens.push({ type: 'LPAREN', value: '(', pos: i }); i++; continue; }
-    if (ch === ')') { tokens.push({ type: 'RPAREN', value: ')', pos: i }); i++; continue; }
 
-    // Number or duration (e.g. 30s)
+    // Single-char operators and punctuation
+    switch (ch) {
+      case '>': tokens.push(tok('GT',       '>',  start)); i++; continue;
+      case '<': tokens.push(tok('LT',       '<',  start)); i++; continue;
+      case '!': tokens.push(tok('NOT',      '!',  start)); i++; continue;
+      case '%': tokens.push(tok('MOD',      '%',  start)); i++; continue;
+      case '(': tokens.push(tok('LPAREN',   '(',  start)); i++; continue;
+      case ')': tokens.push(tok('RPAREN',   ')',  start)); i++; continue;
+      case '[': tokens.push(tok('LBRACKET', '[',  start)); i++; continue;
+      case ']': tokens.push(tok('RBRACKET', ']',  start)); i++; continue;
+      case ',': tokens.push(tok('COMMA',    ',',  start)); i++; continue;
+    }
+
+    // ── Number, float, or duration ───────────────────────────────────────────
     if (/[0-9]/.test(ch)) {
       let num = '';
-      const pos = i;
-      while (i < src.length && /[0-9]/.test(src[i])) { num += src[i++]; }
-      if (src[i] === 's') {
-        tokens.push({ type: 'DURATION', value: num, pos });
-        i++;
-      } else {
-        tokens.push({ type: 'NUMBER', value: num, pos });
+      while (i < src.length && /[0-9]/.test(src[i])) num += src[i++];
+
+      // Decimal part: 3.14
+      let isFloat = false;
+      if (src[i] === '.' && /[0-9]/.test(src[i + 1] ?? '')) {
+        num += src[i++]; // '.'
+        while (i < src.length && /[0-9]/.test(src[i])) num += src[i++];
+        isFloat = true;
       }
+
+      // Duration suffix (works for integers and floats: 30s, 1.5m, 2h)
+      if (DURATION_SUFFIXES.has(src[i])) {
+        num += src[i++];
+        tokens.push({ type: 'DURATION', value: num, span: { start, end: i } });
+        continue;
+      }
+
+      tokens.push(tok(isFloat ? 'FLOAT' : 'NUMBER', num, start));
       continue;
     }
 
-    // String literal
+    // ── String literal — double-quoted ───────────────────────────────────────
     if (ch === '"') {
       let str = '';
-      const pos = i++;
-      while (i < src.length && src[i] !== '"') { str += src[i++]; }
-      if (src[i] !== '"') throw new SyntaxError(`Unterminated string at pos ${pos}`);
-      i++; // consume closing "
-      tokens.push({ type: 'STRING', value: str, pos });
+      i++; // skip opening "
+      while (i < src.length && src[i] !== '"') {
+        if (src[i] === '\\' && i + 1 < src.length) {
+          const esc = src[++i];
+          switch (esc) {
+            case 'n': str += '\n'; break;
+            case 't': str += '\t'; break;
+            case '"': str += '"';  break;
+            case '\\': str += '\\'; break;
+            default: str += esc;
+          }
+          i++;
+        } else {
+          str += src[i++];
+        }
+      }
+      if (i >= src.length) {
+        throw new DSLError('Unterminated string literal', src, { start, end: i });
+      }
+      i++; // skip closing "
+      tokens.push({ type: 'STRING', value: str, span: { start, end: i } });
       continue;
     }
 
-    // Identifier or 'always' keyword
+    // ── String literal — single-quoted ───────────────────────────────────────
+    if (ch === "'") {
+      let str = '';
+      i++; // skip opening '
+      while (i < src.length && src[i] !== "'") {
+        if (src[i] === '\\' && i + 1 < src.length) {
+          const esc = src[++i];
+          switch (esc) {
+            case 'n': str += '\n'; break;
+            case 't': str += '\t'; break;
+            case "'": str += "'";  break;
+            case '\\': str += '\\'; break;
+            default: str += esc;
+          }
+          i++;
+        } else {
+          str += src[i++];
+        }
+      }
+      if (i >= src.length) {
+        throw new DSLError('Unterminated string literal', src, { start, end: i });
+      }
+      i++; // skip closing '
+      tokens.push({ type: 'STRING', value: str, span: { start, end: i } });
+      continue;
+    }
+
+    // ── Identifier or keyword ────────────────────────────────────────────────
     if (/[a-zA-Z_]/.test(ch)) {
       let ident = '';
-      const pos = i;
-      while (i < src.length && /[a-zA-Z0-9_]/.test(src[i])) { ident += src[i++]; }
-      tokens.push({ type: ident === 'always' ? 'ALWAYS' : 'IDENT', value: ident, pos });
+      while (i < src.length && /[a-zA-Z0-9_]/.test(src[i])) ident += src[i++];
+      const type = KEYWORDS[ident] ?? 'IDENT';
+      tokens.push(tok(type, ident, start));
       continue;
     }
 
-    throw new SyntaxError(`Unexpected character '${ch}' at position ${i}`);
+    throw new DSLError(
+      `Unexpected character '${ch}'`,
+      src,
+      { start, end: start + 1 },
+    );
   }
 
-  tokens.push({ type: 'EOF', value: '', pos: src.length });
+  tokens.push({ type: 'EOF', value: '', span: { start: src.length, end: src.length } });
   return tokens;
 }
 
@@ -103,20 +228,23 @@ function tokenize(input: string): Token[] {
 
 class Parser {
   private pos = 0;
-  constructor(private readonly tokens: Token[]) {}
+
+  constructor(
+    private readonly tokens: Token[],
+    private readonly source: string,
+  ) {}
 
   private peek(): Token { return this.tokens[this.pos]; }
 
-  private consume(): Token {
-    const tok = this.tokens[this.pos++];
-    return tok;
-  }
+  private consume(): Token { return this.tokens[this.pos++]; }
 
   private expect(type: TokenType): Token {
     const tok = this.consume();
     if (tok.type !== type) {
-      throw new SyntaxError(
-        `Expected '${type}' but got '${tok.type}' ("${tok.value}") at pos ${tok.pos}`,
+      throw new DSLError(
+        `Expected '${type}' but got '${tok.type}' ("${tok.value}")`,
+        this.source,
+        tok.span,
       );
     }
     return tok;
@@ -167,7 +295,25 @@ class Parser {
       return { kind: 'always' };
     }
 
-    const left  = this.parseOperand();
+    const left = this.parseOperand();
+
+    // Set-membership: operand in [item, item, ...]
+    if (this.peek().type === 'IN') {
+      this.consume();
+      this.expect('LBRACKET');
+      const items: Operand[] = [];
+      if (this.peek().type !== 'RBRACKET') {
+        items.push(this.parseOperand());
+        while (this.peek().type === 'COMMA') {
+          this.consume();
+          items.push(this.parseOperand());
+        }
+      }
+      this.expect('RBRACKET');
+      return { kind: 'in', operand: left, items };
+    }
+
+    // Comparison: operand cmp_op operand
     const op    = this.parseCmpOp();
     const right = this.parseOperand();
     return { kind: 'cmp', op, left, right };
@@ -183,8 +329,10 @@ class Parser {
       case 'EQ':  return '==';
       case 'NEQ': return '!=';
       default:
-        throw new SyntaxError(
-          `Expected comparison operator at pos ${tok.pos}, got '${tok.type}'`,
+        throw new DSLError(
+          `Expected comparison operator, got '${tok.type}' ("${tok.value}")`,
+          this.source,
+          tok.span,
         );
     }
   }
@@ -192,14 +340,29 @@ class Parser {
   private parseOperand(): Operand {
     const tok = this.peek();
 
+    if (tok.type === 'TRUE')  { this.consume(); return { kind: 'bool', value: true }; }
+    if (tok.type === 'FALSE') { this.consume(); return { kind: 'bool', value: false }; }
+    if (tok.type === 'NULL')  { this.consume(); return { kind: 'null' }; }
+
     if (tok.type === 'NUMBER') {
       this.consume();
       return { kind: 'num', value: parseInt(tok.value, 10) };
     }
 
+    if (tok.type === 'FLOAT') {
+      this.consume();
+      return { kind: 'num', value: parseFloat(tok.value) };
+    }
+
     if (tok.type === 'DURATION') {
       this.consume();
-      return { kind: 'duration_ms', ms: parseInt(tok.value, 10) * 1000 };
+      const raw    = tok.value;                        // e.g. "30s", "2m", "1h", "1.5m"
+      const suffix = raw[raw.length - 1] as 's' | 'm' | 'h';
+      const n      = parseFloat(raw.slice(0, -1));
+      const ms     = suffix === 'h' ? n * 3_600_000
+                   : suffix === 'm' ? n * 60_000
+                   :                  n * 1_000;
+      return { kind: 'duration_ms', ms };
     }
 
     if (tok.type === 'STRING') {
@@ -209,7 +372,7 @@ class Parser {
 
     if (tok.type === 'IDENT') {
       this.consume();
-      // Check for modulo: varname % number
+      // Modulo operand: varname % divisor
       if (this.peek().type === 'MOD') {
         this.consume();
         const numTok = this.expect('NUMBER');
@@ -218,23 +381,31 @@ class Parser {
       return { kind: 'var', name: tok.value };
     }
 
-    throw new SyntaxError(`Expected operand at pos ${tok.pos}, got '${tok.type}'`);
+    throw new DSLError(
+      `Expected operand, got '${tok.type}' ("${tok.value}")`,
+      this.source,
+      tok.span,
+    );
   }
 }
 
 // ─── Evaluator ────────────────────────────────────────────────────────────────
 
-function resolveOperand(op: Operand, ctx: EvalContext): number | string {
+type ScalarValue = number | string | boolean | null;
+
+function resolveOperand(op: Operand, ctx: EvalContext): ScalarValue {
   switch (op.kind) {
     case 'num':         return op.value;
     case 'str':         return op.value;
+    case 'bool':        return op.value;
+    case 'null':        return null;
     case 'duration_ms': return op.ms;
     case 'var': {
       const val = (ctx as Record<string, unknown>)[op.name];
       if (val === undefined) {
         throw new ReferenceError(`Unknown DSL variable '${op.name}'`);
       }
-      return val as number | string;
+      return val as ScalarValue;
     }
     case 'mod': {
       const val = (ctx as Record<string, unknown>)[op.name];
@@ -246,14 +417,14 @@ function resolveOperand(op: Operand, ctx: EvalContext): number | string {
   }
 }
 
-function applyOp(left: number | string, op: CompareOp, right: number | string): boolean {
+function applyOp(left: ScalarValue, op: CompareOp, right: ScalarValue): boolean {
   switch (op) {
+    case '==': return left === right;
+    case '!=': return left !== right;
     case '>=': return (left as number) >= (right as number);
     case '<=': return (left as number) <= (right as number);
     case '>':  return (left as number) >  (right as number);
     case '<':  return (left as number) <  (right as number);
-    case '==': return left === right;
-    case '!=': return left !== right;
   }
 }
 
@@ -264,20 +435,58 @@ export function evaluateDSL(ast: ASTNode, ctx: EvalContext): boolean {
     case 'and':    return evaluateDSL(ast.left, ctx) && evaluateDSL(ast.right, ctx);
     case 'or':     return evaluateDSL(ast.left, ctx) || evaluateDSL(ast.right, ctx);
     case 'cmp':    return applyOp(resolveOperand(ast.left, ctx), ast.op, resolveOperand(ast.right, ctx));
+    case 'in': {
+      const val = resolveOperand(ast.operand, ctx);
+      return ast.items.some(item => resolveOperand(item, ctx) === val);
+    }
   }
+}
+
+// ─── AST Cache ────────────────────────────────────────────────────────────────
+
+/** Map preserves insertion order — oldest entries are evicted first. */
+const _astCache = new Map<string, ASTNode>();
+const AST_CACHE_MAX = 256;
+
+/** Clear the internal parse cache. Primarily useful in tests. */
+export function clearDSLCache(): void {
+  _astCache.clear();
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/** Parse a DSL condition string into an AST. Throws SyntaxError on malformed input. */
+/**
+ * Parse a DSL condition string into an AST.
+ *
+ * Results are memoized — repeated calls with the same input return the cached
+ * AST object. For hot paths that repeatedly evaluate the same condition, cache
+ * the AST here and call evaluateDSL() directly to skip re-parsing.
+ *
+ * Throws DSLError (a subclass of SyntaxError) on malformed input.
+ */
 export function parseDSL(input: string): ASTNode {
-  return new Parser(tokenize(input.trim())).parse();
+  const key = input.trim();
+
+  const cached = _astCache.get(key);
+  if (cached) return cached;
+
+  const ast = new Parser(tokenize(key), key).parse();
+
+  if (_astCache.size >= AST_CACHE_MAX) {
+    // Evict oldest (Map insertion-order guarantees this is the first key)
+    const oldest = _astCache.keys().next().value;
+    if (oldest !== undefined) _astCache.delete(oldest);
+  }
+
+  _astCache.set(key, ast);
+  return ast;
 }
 
 /**
- * Parse-and-evaluate in one call.
- * For hot paths (e.g. repeated evaluation of the same edge), cache the AST with parseDSL()
- * and call evaluateDSL() directly.
+ * Parse and evaluate a DSL condition string in one call.
+ *
+ * For hot paths (e.g. repeated evaluation of the same edge condition on every
+ * tick), prefer caching with parseDSL() + evaluateDSL() directly.
  */
 export function checkCondition(condition: string, ctx: EvalContext): boolean {
   return evaluateDSL(parseDSL(condition), ctx);

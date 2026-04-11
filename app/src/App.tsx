@@ -6,6 +6,9 @@ import PresetTimerScreen from './components/PresetTimerScreen';
 import WorkoutRuntime from './components/WorkoutRuntime';
 import WorkoutComplete from './components/WorkoutComplete';
 import TransitionOverlay from './components/TransitionOverlay';
+import GraphChoiceOverlay from './components/GraphChoiceOverlay';
+import PreWorkoutReadiness from './components/PreWorkoutReadiness';
+import ProgramDashboard from './components/ProgramDashboard';
 
 export default function App() {
   const mode = useTimerStore((s) => s.mode);
@@ -24,6 +27,8 @@ export default function App() {
     if (showRuntime) return <WorkoutRuntime />;
 
     switch (mode) {
+      case 'program':
+        return <ProgramDashboard />;
       case 'preset':
         return <PresetTimerScreen />;
       case 'custom':
@@ -42,8 +47,10 @@ export default function App() {
       {/* Screen */}
       {renderScreen()}
 
-      {/* Overlays */}
+      {/* Overlays — stacking order: Transition (z-40) → Readiness (z-50) → Choice (z-50) */}
       <TransitionOverlay />
+      <PreWorkoutReadiness />
+      <GraphChoiceOverlay />
     </>
   );
 }

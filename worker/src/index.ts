@@ -1,73 +1,257 @@
 import { Hono } from 'hono';
+import { NotionService } from './notion';
 
 type Bindings = {
-  // Bindings like KV, format: MY_KV: KVNamespace
+  // KV, D1, or other Cloudflare bindings go here
+  // SESSIONS_DATABASE_ID?: string;  (could be env var via wrangler.toml)
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Healthcheck
-app.get('/', (c) => c.text('Galawgaw Worker API is running'));
+// ─── Middleware: extract auth + validate ──────────────────────────────────────
 
-import { NotionService } from './notion';
+function getAuth(c: any): string | null {
+  return c.req.header('Authorization')?.replace('Bearer ', '') ?? null;
+}
 
-// Endpoint: Fetch Notion Workout and Translate to AST
-// This represents the bridge required in Phase 2 Workstream 1
+// ─── Health check ─────────────────────────────────────────────────────────────
+
+app.get('/', (c) => c.text('Galawgaw Worker API v2 is running'));
+
+// ─── GET /api/workouts ────────────────────────────────────────────────────────
+// List all workout pages from a Notion workouts database.
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Workouts-Database-Id: <notion_db_id>
+
+app.get('/api/workouts', async (c) => {
+  const auth               = getAuth(c);
+  const workoutsDatabaseId = c.req.header('X-Workouts-Database-Id');
+
+  if (!auth || !workoutsDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Workouts-Database-Id header.' }, 401);
+  }
+
+  try {
+    const svc      = new NotionService(auth);
+    const workouts = await svc.listWorkouts(workoutsDatabaseId);
+    return c.json(workouts);
+  } catch (err: any) {
+    console.error('[workouts] Error:', err);
+    return c.json({ error: 'Failed to list workouts', details: err.message }, 500);
+  }
+});
+
+// ─── GET /api/workout/:id ─────────────────────────────────────────────────────
+// Fetch a Notion workout page and return a fully-typed WorkoutBlock tree.
+// The DSL condition strings are validated server-side; invalid ones are logged
+// and omitted rather than blocking the response.
+
 app.get('/api/workout/:id', async (c) => {
-  const workoutId = c.req.param('id');
-  
-  // The Notion DB ID and User Access Token will eventually come from Supabase / KV mapping.
-  // For now, we expect them as headers for testing purposes.
-  const auth = c.req.header('Authorization')?.replace('Bearer ', '');
+  const workoutId        = c.req.param('id');
+  const auth             = getAuth(c);
   const blocksDatabaseId = c.req.header('X-Blocks-Database-Id');
 
   if (!auth || !blocksDatabaseId) {
-    return c.json({ error: "Missing Authorization token or X-Blocks-Database-Id header." }, 401);
+    return c.json({ error: 'Missing Authorization or X-Blocks-Database-Id header.' }, 401);
   }
 
   try {
-    const notionService = new NotionService(auth);
-    console.log(`Fetching workout ${workoutId} and building AST...`);
-    
-    // Process Workstream 1: Traversing Notion Blocks and producing standard AST
-    const workoutAST = await notionService.buildWorkoutAST(workoutId, blocksDatabaseId);
-    
-    return c.json(workoutAST);
-  } catch (error: any) {
-    console.error("Error building workout AST:", error);
-    return c.json({ error: "Failed to parse AST from Notion", details: error.message }, 500);
+    const svc = new NotionService(auth);
+    const ast = await svc.buildWorkoutAST(workoutId, blocksDatabaseId);
+    return c.json(ast);
+  } catch (err: any) {
+    console.error('[workout] Error:', err);
+    return c.json({ error: 'Failed to fetch workout from Notion', details: err.message }, 500);
   }
 });
 
-// Endpoint: Write-back Session Results to Notion
-// This represents Phase 2 Workstream 3
-app.post('/api/sync/session', async (c) => {
-  // TODO: Receive session JSON from Client IndexedDB
-  // const sessionResult = await c.req.json();
-  
-  // TODO: Format Notion API request and execute Write
-  
-  return c.json({ success: true, message: "Session results accepted for sync queue" });
+// ─── GET /api/workout/:id/sessions ───────────────────────────────────────────
+// Return recent session history for a workout — used by the Program Engine
+// to determine whether today's lift has already been completed.
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Sessions-Database-Id: <notion_db_id>
+//
+// Optional query param:
+//   limit   integer, default 10, max 50
+//
+// Response: SessionHistoryRecord[]
+//   [ { date, completion_ratio, post_fatigue_score?, pre_readiness_score? }, … ]
+
+app.get('/api/workout/:id/sessions', async (c) => {
+  const workoutId          = c.req.param('id');
+  const auth               = getAuth(c);
+  const sessionsDatabaseId = c.req.header('X-Sessions-Database-Id');
+  const limit              = Math.min(Number(c.req.query('limit') ?? '10'), 50);
+
+  if (!auth || !sessionsDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Sessions-Database-Id header.' }, 401);
+  }
+
+  try {
+    const svc      = new NotionService(auth);
+    const sessions = await svc.fetchSessionHistory(workoutId, sessionsDatabaseId, limit);
+    return c.json(sessions);
+  } catch (err: any) {
+    console.error('[workout/sessions] Error:', err);
+    return c.json({ error: 'Failed to fetch session history', details: err.message }, 500);
+  }
 });
 
-// Endpoint: Check Dirty State
-// This represents Phase 2 Workstream 4
+// ─── GET /api/workout/:id/dirty ───────────────────────────────────────────────
+// Check if a workout was edited after a given timestamp (mid-session polling).
+
 app.get('/api/workout/:id/dirty', async (c) => {
   const workoutId = c.req.param('id');
-  const since = c.req.query('since'); // Expected as ISO string
-  const auth = c.req.header('Authorization')?.replace('Bearer ', '');
+  const since     = c.req.query('since');
+  const auth      = getAuth(c);
 
   if (!auth || !since) {
-    return c.json({ error: "Missing Authorization token or 'since' query parameter." }, 401);
+    return c.json({ error: "Missing Authorization or 'since' query parameter." }, 401);
   }
 
   try {
-    const notionService = new NotionService(auth);
-    const isDirty = await notionService.checkDirtyState(workoutId, since);
+    const svc     = new NotionService(auth);
+    const isDirty = await svc.checkDirtyState(workoutId, since);
     return c.json({ isDirty });
-  } catch (error: any) {
-    console.error("Error checking dirty state:", error);
-    return c.json({ error: "Failed to check dirty state from Notion", details: error.message }, 500);
+  } catch (err: any) {
+    console.error('[dirty] Error:', err);
+    return c.json({ error: 'Failed to check dirty state', details: err.message }, 500);
+  }
+});
+
+// ─── POST /api/sync/session ───────────────────────────────────────────────────
+// Write a completed session result to the Notion sessions database.
+//
+// Body (JSON):
+//   workout_id           string   (Notion page id)
+//   date                 string   (ISO)
+//   pre_readiness_score  number   0–10
+//   post_fatigue_score?  number   0–10
+//   completion_ratio     number   0–1
+//   duration_ms?         number
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Sessions-Database-Id: <notion_db_id>
+
+app.post('/api/sync/session', async (c) => {
+  const auth              = getAuth(c);
+  const sessionsDatabaseId = c.req.header('X-Sessions-Database-Id');
+
+  if (!auth || !sessionsDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Sessions-Database-Id header.' }, 401);
+  }
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body.' }, 400);
+  }
+
+  const { workout_id, date, pre_readiness_score, post_fatigue_score, completion_ratio, duration_ms } = body;
+
+  if (!workout_id || !date || completion_ratio === undefined || pre_readiness_score === undefined) {
+    return c.json({ error: 'Missing required fields: workout_id, date, pre_readiness_score, completion_ratio.' }, 400);
+  }
+
+  try {
+    const svc = new NotionService(auth);
+    await svc.writeSyncSession(
+      { workout_id, date, pre_readiness_score, post_fatigue_score, completion_ratio, duration_ms },
+      sessionsDatabaseId,
+    );
+    return c.json({ success: true, message: 'Session synced to Notion.' });
+  } catch (err: any) {
+    console.error('[sync] Error:', err);
+    return c.json({ error: 'Failed to write session to Notion', details: err.message }, 500);
+  }
+});
+
+// ─── GET /api/fatigue/:id ─────────────────────────────────────────────────────
+// Fetch recent session history for a workout and return a computed fatigue score.
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Sessions-Database-Id: <notion_db_id>
+//
+// Response:
+//   { fatigue_score: number, sessions_analyzed: number, trend: 'improving'|'declining'|'stable' }
+
+app.get('/api/fatigue/:id', async (c) => {
+  const workoutId        = c.req.param('id');
+  const auth             = getAuth(c);
+  const sessionsDatabaseId = c.req.header('X-Sessions-Database-Id');
+
+  if (!auth || !sessionsDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Sessions-Database-Id header.' }, 401);
+  }
+
+  try {
+    const svc  = new NotionService(auth);
+    const data = await svc.getFatigueData(workoutId, sessionsDatabaseId);
+    return c.json(data);
+  } catch (err: any) {
+    console.error('[fatigue] Error:', err);
+    return c.json({ error: 'Failed to compute fatigue score', details: err.message }, 500);
+  }
+});
+
+// ─── GET /api/programs ────────────────────────────────────────────────────────
+// List all workout programs from the user's Notion programs database.
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Programs-Database-Id: <notion_db_id>
+
+app.get('/api/programs', async (c) => {
+  const auth               = getAuth(c);
+  const programsDatabaseId = c.req.header('X-Programs-Database-Id');
+
+  if (!auth || !programsDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Programs-Database-Id header.' }, 401);
+  }
+
+  try {
+    const svc      = new NotionService(auth);
+    const programs = await svc.listPrograms(programsDatabaseId);
+    return c.json(programs);
+  } catch (err: any) {
+    console.error('[programs] Error:', err);
+    return c.json({ error: 'Failed to list programs', details: err.message }, 500);
+  }
+});
+
+// ─── GET /api/program/:id/schedule ───────────────────────────────────────────
+// Fetch the full ordered day schedule for a given program.
+//
+// Required headers:
+//   Authorization: Bearer <notion_token>
+//   X-Days-Database-Id: <notion_program_days_db_id>
+//
+// Response: ProgramDay[]
+//   [ { id, week, day, workout_template_id, is_rest_day, notes }, … ]
+
+app.get('/api/program/:id/schedule', async (c) => {
+  const programId     = c.req.param('id');
+  const auth          = getAuth(c);
+  const daysDatabaseId = c.req.header('X-Days-Database-Id');
+
+  if (!auth || !daysDatabaseId) {
+    return c.json({ error: 'Missing Authorization or X-Days-Database-Id header.' }, 401);
+  }
+
+  try {
+    const svc  = new NotionService(auth);
+    const days = await svc.getProgramSchedule(programId, daysDatabaseId);
+    return c.json(days);
+  } catch (err: any) {
+    console.error('[program/schedule] Error:', err);
+    return c.json({ error: 'Failed to fetch program schedule', details: err.message }, 500);
   }
 });
 

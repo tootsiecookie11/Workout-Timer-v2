@@ -1,14 +1,17 @@
 import { get, set } from 'idb-keyval';
 import { supabase } from './supabase';
 
-const SYNC_QUEUE_KEY = 'galawgaw_sync_queue';
+const SYNC_QUEUE_KEY   = 'galawgaw_sync_queue';
+const WORKER_URL       = (import.meta.env.VITE_WORKER_URL        as string | undefined) ?? '';
+const SESSIONS_DB_ID   = (import.meta.env.VITE_NOTION_SESSIONS_DB_ID as string | undefined) ?? '';
 
 export interface SessionResult {
-  workout_id: string;
-  date: string; // ISO String
+  workout_id:          string;
+  date:                string;
   pre_readiness_score: number;
   post_fatigue_score?: number;
-  completion_ratio: number;
+  completion_ratio:    number;
+  duration_ms?:        number;
 }
 
 // 1. Save Session locally
@@ -31,10 +34,17 @@ export async function triggerBackgroundSync() {
   const queue = (await get<SessionResult[]>(SYNC_QUEUE_KEY)) || [];
   if (queue.length === 0) return;
 
+  if (!WORKER_URL || !SESSIONS_DB_ID) {
+    console.log("Worker not configured. Sync deferred.");
+    return;
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    console.log("Not authenticated with Notion. Sync deferred.");
-    return; // Wait until they authenticate
+  // provider_token is the Notion OAuth token; access_token is the Supabase JWT
+  const notionToken = session?.provider_token;
+  if (!notionToken) {
+    console.log("Notion not connected. Sync deferred.");
+    return;
   }
 
   console.log(`Attempting to sync ${queue.length} sessions to Notion...`);
@@ -43,14 +53,14 @@ export async function triggerBackgroundSync() {
 
   for (const item of queue) {
     try {
-      // Worker API Route created in Workstream 1
-      const response = await fetch('/api/sync/session', {
+      const response = await fetch(`${WORKER_URL}/api/sync/session`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Content-Type':           'application/json',
+          'Authorization':          `Bearer ${notionToken}`,
+          'X-Sessions-Database-Id': SESSIONS_DB_ID,
         },
-        body: JSON.stringify(item)
+        body: JSON.stringify(item),
       });
 
       if (!response.ok) {

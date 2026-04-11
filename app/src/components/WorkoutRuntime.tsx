@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useTimerStore } from '../store/timerStore';
-import TimerDisplay from './TimerDisplay';
+import TimerDisplay, { formatMs } from './TimerDisplay';
 import { useNotionPoller } from '../hooks/useNotionPoller';
+import type { WorkoutStep } from '../engine/types';
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
 function StepTypeChip({ type }: { type: string }) {
   const isRest = type === 'rest';
@@ -9,8 +13,8 @@ function StepTypeChip({ type }: { type: string }) {
       className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
       style={{
         background: isRest ? 'rgba(254,178,70,0.1)' : 'rgba(169,229,187,0.1)',
-        color: isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)',
-        border: `1px solid ${isRest ? 'rgba(254,178,70,0.2)' : 'rgba(169,229,187,0.2)'}`,
+        color:      isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)',
+        border:     `1px solid ${isRest ? 'rgba(254,178,70,0.2)' : 'rgba(169,229,187,0.2)'}`,
       }}
     >
       {isRest ? 'Rest' : 'Work'}
@@ -18,123 +22,269 @@ function StepTypeChip({ type }: { type: string }) {
   );
 }
 
-export default function WorkoutRuntime() {
-  const isDirty = useNotionPoller();
-  const currentStep = useTimerStore((s) => s.currentStep);
-  const nextStepLabel = useTimerStore((s) => s.nextStepLabel);
-  const remaining_ms = useTimerStore((s) => s.remaining_ms);
-  const elapsed_ms = useTimerStore((s) => s.elapsed_ms);
-  const progress = useTimerStore((s) => s.progress);
-  const stepIndex = useTimerStore((s) => s.stepIndex);
-  const totalSteps = useTimerStore((s) => s.totalSteps);
-  const engineState = useTimerStore((s) => s.engineState);
-  const stepQueue = useTimerStore((s) => s.stepQueue);
-  const pauseSession = useTimerStore((s) => s.pauseSession);
-  const resumeSession = useTimerStore((s) => s.resumeSession);
-  const skipStep = useTimerStore((s) => s.skipStep);
-  const endSession = useTimerStore((s) => s.endSession);
-
-  const isPaused = engineState === 'PAUSED';
-  const isRest = currentStep?.type === 'rest';
-
-  // Round info from meta
-  const round = currentStep?.meta.round;
-  const totalRounds = currentStep?.meta.total_rounds;
-  const showRound = round !== undefined && totalRounds !== undefined && totalRounds > 1;
+/**
+ * Segmented progress bar.
+ * Past pills: filled, dimmed.
+ * Active pill: full-width blinking gradient (no fill-tracking — same height as siblings).
+ * Future pills: ghosted.
+ */
+function SegmentedProgressBar({
+  steps,
+  currentIndex,
+}: {
+  steps: WorkoutStep[];
+  currentIndex: number;
+}) {
+  const MAX_VISIBLE = 28;
+  const visible = steps.slice(0, MAX_VISIBLE);
+  const extra   = steps.length - MAX_VISIBLE;
 
   return (
-    <div className="min-h-screen flex flex-col pt-20 pb-8 px-5">
-      {/* Ambient glow — changes color for rest vs work */}
+    <div className="flex items-center gap-[3px] w-full">
+      <style>{`
+        @keyframes activePillBlink {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1;   }
+        }
+      `}</style>
+
+      {visible.map((step, i) => {
+        const isPast   = i < currentIndex;
+        const isActive = i === currentIndex;
+        const isRest   = step.type === 'rest';
+        const activeColor = isRest ? '#FEB246' : '#A9E5BB';
+        const pastColor   = isRest ? 'rgba(254,178,70,0.30)' : 'rgba(169,229,187,0.30)';
+        const futureColor = 'rgba(255,255,255,0.08)';
+
+        return (
+          <div
+            key={i}
+            className="flex-1 rounded-full"
+            style={{
+              height:     5,
+              background: isPast
+                ? pastColor
+                : isActive
+                ? `linear-gradient(90deg, ${activeColor}66, ${activeColor})`
+                : futureColor,
+              boxShadow:  isActive ? `0 0 8px ${activeColor}88` : 'none',
+              animation:  isActive ? 'activePillBlink 1.4s ease-in-out infinite' : 'none',
+              transition: 'background 0.25s, box-shadow 0.25s',
+            }}
+          />
+        );
+      })}
+
+      {extra > 0 && (
+        <span
+          className="text-[9px] ml-1 shrink-0 tabular-nums"
+          style={{ color: 'var(--color-brand-text-muted)' }}
+        >
+          +{extra}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Label on top, value below. */
+function StatCell({
+  label,
+  value,
+  align = 'center',
+}: {
+  label: string;
+  value: string;
+  align?: 'left' | 'center' | 'right';
+}) {
+  const alignClass =
+    align === 'left'  ? 'items-start'  :
+    align === 'right' ? 'items-end'    :
+                        'items-center';
+  return (
+    <div className={`flex flex-col gap-[3px] ${alignClass}`}>
+      <span
+        className="text-[9px] font-bold uppercase tracking-[0.18em]"
+        style={{ color: 'var(--color-brand-text-muted)' }}
+      >
+        {label}
+      </span>
+      <span
+        className="text-sm font-bold tabular-nums"
+        style={{ color: 'var(--color-brand-text)' }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ─── Control button ────────────────────────────────────────────────────────────
+
+function SmallBtn({
+  onClick,
+  disabled,
+  label,
+  danger,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-25"
+      style={{
+        background: danger ? 'rgba(255,132,129,0.1)' : 'rgba(255,255,255,0.06)',
+        border:     danger
+          ? '1px solid rgba(255,132,129,0.22)'
+          : '1px solid rgba(255,255,255,0.09)',
+        color: danger ? 'var(--color-brand-tertiary)' : 'var(--color-brand-text-muted)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+export default function WorkoutRuntime() {
+  const isDirty         = useNotionPoller();
+  const currentStep     = useTimerStore((s) => s.currentStep);
+  const nextStepLabel   = useTimerStore((s) => s.nextStepLabel);
+  const remaining_ms    = useTimerStore((s) => s.remaining_ms);
+  const elapsed_ms      = useTimerStore((s) => s.elapsed_ms);
+  const progress        = useTimerStore((s) => s.progress);
+  const stepIndex       = useTimerStore((s) => s.stepIndex);
+  const totalSteps      = useTimerStore((s) => s.totalSteps);
+  const engineState     = useTimerStore((s) => s.engineState);
+  const stepQueue       = useTimerStore((s) => s.stepQueue);
+  const sessionStartedAt = useTimerStore((s) => s.sessionStartedAt);
+
+  const pauseSession  = useTimerStore((s) => s.pauseSession);
+  const resumeSession = useTimerStore((s) => s.resumeSession);
+  const skipStep      = useTimerStore((s) => s.skipStep);
+  const prevStep      = useTimerStore((s) => s.prevStep);
+  const endSession    = useTimerStore((s) => s.endSession);
+
+  const isPaused = engineState === 'PAUSED';
+  const isRest   = currentStep?.type === 'rest';
+
+  // Round info from step meta
+  const round       = currentStep?.meta.round;
+  const totalRounds = currentStep?.meta.total_rounds;
+  const showRound   = round !== undefined && totalRounds !== undefined && totalRounds > 1;
+
+  const accentColor = isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)';
+
+  // ── Wall-clock elapsed ──────────────────────────────────────────────────────
+  // Ticks every 100 ms via a local interval. Never pauses — keeps running
+  // through pause, prev-step, and next-step navigation.
+  const [wallElapsed, setWallElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!sessionStartedAt) {
+      setWallElapsed(0);
+      return;
+    }
+    // Tick immediately so there's no 100 ms blank at start
+    setWallElapsed(Date.now() - sessionStartedAt);
+    const id = setInterval(() => {
+      setWallElapsed(Date.now() - sessionStartedAt);
+    }, 100);
+    return () => clearInterval(id);
+  }, [sessionStartedAt]);
+
+  const { main: elapsedFormatted } = formatMs(wallElapsed);
+
+  // The segmented bar uses the full flat step queue; fall back to the current
+  // step alone for graph sessions (which have no flat queue).
+  const barSteps: WorkoutStep[] =
+    stepQueue.length > 0 ? stepQueue : currentStep ? [currentStep] : [];
+
+  return (
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: 'var(--color-brand-bg)' }}
+    >
+      {/* Ambient glow */}
       <div
         className="pointer-events-none fixed inset-0 transition-all duration-1000"
         aria-hidden="true"
         style={{
           background: isRest
-            ? 'radial-gradient(ellipse 55% 35% at 50% 40%, rgba(254,178,70,0.06) 0%, transparent 70%)'
-            : 'radial-gradient(ellipse 55% 35% at 50% 40%, rgba(169,229,187,0.07) 0%, transparent 70%)',
+            ? 'radial-gradient(ellipse 60% 40% at 50% 38%, rgba(254,178,70,0.07) 0%, transparent 70%)'
+            : 'radial-gradient(ellipse 60% 40% at 50% 38%, rgba(169,229,187,0.08) 0%, transparent 70%)',
         }}
       />
 
-      {/* Step progress bar (top) */}
-      <div
-        className="fixed top-0 left-0 right-0 h-0.5 z-50"
-        style={{ background: 'rgba(255,255,255,0.06)' }}
-      >
-        <div
-          className="h-full transition-all duration-100"
-          style={{
-            width: `${(stepIndex / Math.max(totalSteps - 1, 1)) * 100}%`,
-            background: 'var(--color-brand-primary)',
-            boxShadow: '0 0 8px var(--color-brand-primary)',
-          }}
-        />
-      </div>
+      {/* ── TOP: segmented bar + stats row ──────────────────────────────── */}
+      <div className="relative z-10 px-5 pt-12 pb-3 flex flex-col gap-4">
+        <SegmentedProgressBar steps={barSteps} currentIndex={stepIndex} />
 
-      {/* Step counter */}
-      <div className="flex items-center justify-between pt-14 px-1 mb-4">
-        <span
-          className="text-xs font-bold uppercase tracking-widest"
-          style={{ color: 'var(--color-brand-text-muted)' }}
-        >
-          Step {stepIndex + 1} / {totalSteps}
-        </span>
-        {showRound && (
-          <span
-            className="text-xs font-bold uppercase tracking-widest"
-            style={{ color: 'var(--color-brand-text-muted)' }}
-          >
-            Round {round} / {totalRounds}
-          </span>
-        )}
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 relative">
-        {/* Step type + label */}
-        <div className="flex flex-col items-center gap-3 text-center">
-          <StepTypeChip type={currentStep?.type ?? 'exercise'} />
-          <h1
-            className="font-display font-bold leading-tight"
-            style={{
-              fontSize: 'clamp(1.75rem, 7vw, 3.5rem)',
-              color: 'var(--color-brand-text)',
-            }}
-          >
-            {currentStep?.label ?? '—'}
-          </h1>
-        </div>
-
-        {/* Timer + paused badge */}
-        <div className="relative flex flex-col items-center">
-          <style>{`
-            @keyframes pausePulse {
-              0%, 100% { opacity: 0.35; }
-              50%       { opacity: 0.75; }
-            }
-          `}</style>
-          {isPaused && (
-            <span
-              className="absolute -top-5 font-display font-bold uppercase"
-              style={{
-                fontSize: '0.58rem',
-                letterSpacing: '0.35em',
-                color: 'var(--color-brand-text-muted)',
-                animation: 'pausePulse 2s ease-in-out infinite',
-              }}
-              aria-live="polite"
-            >
-              Paused
-            </span>
-          )}
-          <TimerDisplay
-            ms={currentStep?.duration_ms === 0 ? elapsed_ms : remaining_ms}
-            size="xl"
-            glowColor={isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)'}
-            dimmed={isPaused}
+        {/* Stats: Elapsed | Steps | Rounds */}
+        <div className="flex items-start justify-between px-0.5">
+          <StatCell label="Elapsed" value={elapsedFormatted} align="left" />
+          <StatCell label="Steps"   value={`${stepIndex + 1} / ${totalSteps}`} />
+          <StatCell
+            label="Rounds"
+            value={showRound ? `${round} / ${totalRounds}` : '—'}
+            align="right"
           />
         </div>
+      </div>
 
-        {/* Progress arc (step-level) */}
+      {/* ── CENTER: step name → timer → progress line → next step ───────── */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-5 px-6">
+        <StepTypeChip type={currentStep?.type ?? 'exercise'} />
+
+        <h1
+          className="font-display font-bold leading-tight text-center"
+          style={{
+            fontSize: 'clamp(2rem, 9vw, 4.5rem)',
+            color:    'var(--color-brand-text)',
+          }}
+        >
+          {currentStep?.label ?? '—'}
+        </h1>
+
+        <style>{`
+          @keyframes pausePulse {
+            0%, 100% { opacity: 0.3; }
+            50%       { opacity: 0.8; }
+          }
+        `}</style>
+        {isPaused && (
+          <span
+            className="font-display font-bold uppercase"
+            style={{
+              fontSize:      '0.65rem',
+              letterSpacing: '0.35em',
+              color:         'var(--color-brand-text-muted)',
+              animation:     'pausePulse 2s ease-in-out infinite',
+            }}
+            aria-live="polite"
+          >
+            Paused
+          </span>
+        )}
+
+        {/* Big countdown / step-elapsed */}
+        <TimerDisplay
+          ms={currentStep?.duration_ms === 0 ? elapsed_ms : remaining_ms}
+          size="xl"
+          glowColor={accentColor}
+          dimmed={isPaused}
+        />
+
+        {/* Step-level progress line */}
         {currentStep && currentStep.duration_ms > 0 && (
           <div
             className="w-full max-w-xs h-1 rounded-full overflow-hidden"
@@ -143,144 +293,103 @@ export default function WorkoutRuntime() {
             <div
               className="h-full rounded-full transition-all duration-100"
               style={{
-                width: `${progress * 100}%`,
-                background: isRest ? 'var(--color-brand-secondary)' : 'var(--color-brand-primary)',
-                boxShadow: isRest
-                  ? '0 0 8px var(--color-brand-secondary)'
-                  : '0 0 8px var(--color-brand-primary)',
+                width:      `${progress * 100}%`,
+                background: accentColor,
+                boxShadow:  `0 0 8px ${accentColor}`,
               }}
             />
           </div>
         )}
 
-      {/* Next up */}
         {nextStepLabel && (
           <p
-            className="text-xs font-medium"
+            className="text-sm font-medium"
             style={{ color: 'var(--color-brand-text-muted)' }}
           >
-            Next: <span style={{ color: 'var(--color-brand-text)' }}>{nextStepLabel}</span>
+            Next:{' '}
+            <span style={{ color: 'var(--color-brand-text)' }}>{nextStepLabel}</span>
           </p>
         )}
       </div>
 
-      {/* Dirty State Warning Toast */}
-      {isDirty && (
-        <div 
-          className="mx-auto mb-4 w-full max-w-sm rounded-xl p-3 flex items-center justify-between shadow-lg"
-          style={{
-            background: 'rgba(255,132,129,0.15)',
-            border: '1px solid var(--color-brand-tertiary)',
-            color: 'var(--color-brand-tertiary)'
-          }}
-        >
-          <div className="flex items-center gap-3">
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-               <line x1="12" y1="9" x2="12" y2="13"/>
-               <line x1="12" y1="17" x2="12.01" y2="17"/>
-             </svg>
-             <div className="flex flex-col text-left">
-               <span className="text-sm font-bold uppercase tracking-wider">Reload Required</span>
-               <span className="text-xs opacity-80">Workout updated in Notion</span>
-             </div>
+      {/* ── BOTTOM: dirty toast + controls ──────────────────────────────── */}
+      <div className="relative z-10 flex flex-col items-center gap-5 px-5 pb-10">
+        {isDirty && (
+          <div
+            className="w-full max-w-sm rounded-xl p-3 flex items-center gap-3"
+            style={{
+              background: 'rgba(255,132,129,0.15)',
+              border:     '1px solid var(--color-brand-tertiary)',
+              color:      'var(--color-brand-tertiary)',
+            }}
+          >
+            <svg
+              width="18" height="18" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9"  x2="12"   y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <div className="flex flex-col text-left">
+              <span className="text-sm font-bold uppercase tracking-wider">Reload Required</span>
+              <span className="text-xs opacity-80">Workout updated in Notion</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-6 pt-4">
-        {/* End session */}
-        <button
-          onClick={endSession}
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-          style={{
-            background: 'rgba(255,132,129,0.1)',
-            border: '1px solid rgba(255,132,129,0.2)',
-            color: 'var(--color-brand-tertiary)',
-          }}
-          aria-label="End session"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-          </svg>
-        </button>
-
-        {/* Pause / Resume (large center) */}
-        <button
-          onClick={isPaused ? resumeSession : pauseSession}
-          className="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90"
-          style={
-            isPaused
-              ? {
-                  background: 'var(--color-brand-primary)',
-                  color: '#120b18',
-                  boxShadow: '0 0 40px rgba(169,229,187,0.35)',
-                }
-              : {
-                  background: 'rgba(169,229,187,0.1)',
-                  border: '2px solid var(--color-brand-primary)',
-                  color: 'var(--color-brand-primary)',
-                }
-          }
-          aria-label={isPaused ? 'Resume' : 'Pause'}
-        >
-          {isPaused ? (
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
+        {/* Controls: Previous | Play/Pause | Stop | Next */}
+        <div className="flex items-center justify-center gap-4">
+          <SmallBtn onClick={prevStep} disabled={stepIndex === 0} label="Previous step">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
             </svg>
-          ) : (
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
-          )}
-        </button>
+          </SmallBtn>
 
-        {/* Skip */}
-        <button
-          onClick={skipStep}
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            color: 'var(--color-brand-text-muted)',
-          }}
-          aria-label="Skip step"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Mini step queue preview */}
-      {stepQueue.length > 0 && (
-        <div className="mt-6 overflow-x-auto no-scrollbar">
-          <div className="flex gap-2 px-1">
-            {stepQueue.slice(0, 12).map((step, i) => (
-              <div
-                key={step.step_index}
-                className="flex-shrink-0 w-8 h-1.5 rounded-full"
-                style={{
-                  background:
-                    i === stepIndex
-                      ? 'var(--color-brand-primary)'
-                      : i < stepIndex
-                      ? 'rgba(169,229,187,0.25)'
-                      : step.type === 'rest'
-                      ? 'rgba(254,178,70,0.25)'
-                      : 'rgba(255,255,255,0.1)',
-                }}
-              />
-            ))}
-            {stepQueue.length > 12 && (
-              <span className="text-[10px] self-center" style={{ color: 'var(--color-brand-text-muted)' }}>
-                +{stepQueue.length - 12}
-              </span>
+          {/* Play / Pause — large center */}
+          <button
+            onClick={isPaused ? resumeSession : pauseSession}
+            aria-label={isPaused ? 'Resume' : 'Pause'}
+            className="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90"
+            style={
+              isPaused
+                ? {
+                    background: accentColor,
+                    color:      '#120b18',
+                    boxShadow:  `0 0 44px color-mix(in srgb, ${accentColor} 40%, transparent)`,
+                  }
+                : {
+                    background: 'rgba(169,229,187,0.08)',
+                    border:     `2px solid ${accentColor}`,
+                    color:      accentColor,
+                  }
+            }
+          >
+            {isPaused ? (
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            ) : (
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
             )}
-          </div>
+          </button>
+
+          <SmallBtn onClick={endSession} label="End session" danger>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="5" width="14" height="14" rx="2" />
+            </svg>
+          </SmallBtn>
+
+          <SmallBtn onClick={skipStep} label="Next step">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z" />
+            </svg>
+          </SmallBtn>
         </div>
-      )}
+      </div>
     </div>
   );
 }
