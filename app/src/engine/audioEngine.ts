@@ -94,9 +94,14 @@ class AudioEngine {
     this.scheduleBeep(660, 120, 0.3);
   }
 
+  private lastAnnouncedText = '';
+  private lastAnnouncedTime = 0;
+
   /**
    * Announce the next exercise name using the browser's Speech Synthesis API.
    * Cancels any in-flight utterance first to avoid overlap.
+   * Includes a throttle guard to prevent annoying repetitions of the same cue
+   * within a short window (e.g. 2.5s).
    *
    * @param name   Exercise label to speak (e.g. "Push-ups")
    * @param isRest Pass true to speak "Rest" instead
@@ -105,15 +110,33 @@ class AudioEngine {
     if (!this.voiceEnabled) return;
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
+    const text = (isRest ? 'Rest' : name).trim();
+    if (!text) return;
+
+    // Guard: Don't repeat the exact same text if announced within the last 2.5s.
+    // This handles cases where transitions or ticks might double-trigger cues.
+    const now = Date.now();
+    if (text === this.lastAnnouncedText && now - this.lastAnnouncedTime < 2500) {
+      return;
+    }
+
     window.speechSynthesis.cancel();
 
-    const text = isRest ? 'Rest' : name;
-    if (!text.trim()) return;
+    this.lastAnnouncedText = text;
+    this.lastAnnouncedTime = now;
 
     const utt   = new SpeechSynthesisUtterance(text);
-    utt.rate    = 0.9;
-    utt.pitch   = 1.1;
+    utt.rate    = 0.95; // Slightly faster for natural feel
+    utt.pitch   = 1.0;
     utt.volume  = 1;
+
+    // Try to find a premium English voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const premium = voices.find(v => v.name.includes('Google') && v.lang.includes('en-US'))
+                 || voices.find(v => v.lang.includes('en-GB'))
+                 || voices.find(v => v.lang.includes('en'));
+    if (premium) utt.voice = premium;
+
     window.speechSynthesis.speak(utt);
   }
 

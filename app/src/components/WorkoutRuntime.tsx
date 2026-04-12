@@ -174,6 +174,10 @@ export default function WorkoutRuntime() {
   const prevStep      = useTimerStore((s) => s.prevStep);
   const endSession    = useTimerStore((s) => s.endSession);
 
+  // Settings for status indicators
+  const enableVoice = useSettingsStore(s => s.enableVoiceCues);
+  const enableHaptics = useSettingsStore(s => s.enableHaptics);
+
   const isPaused = engineState === 'PAUSED';
   const isRest   = currentStep?.type === 'rest';
 
@@ -238,6 +242,37 @@ export default function WorkoutRuntime() {
             value={showRound ? `${round} / ${totalRounds}` : '—'}
             align="right"
           />
+        </div>
+
+        {/* Status Indicators: Audio | Haptics */}
+        <div 
+          className="flex items-center gap-3 px-1 mt-[-4px]"
+          style={{ opacity: 0.5 }}
+        >
+          <div className="flex items-center gap-1">
+            <svg 
+              width="10" height="10" viewBox="0 0 24 24" 
+              fill={enableVoice ? 'var(--color-brand-primary)' : 'currentColor'}
+              style={{ color: enableVoice ? 'var(--color-brand-primary)' : 'rgba(255,255,255,0.2)' }}
+            >
+              <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm-1 16.93A8.001 8.001 0 0 1 4.07 11h2.02A5.999 5.999 0 0 0 18 11h2.02A8.001 8.001 0 0 1 13 18.93V21h-2v-2.07z" />
+            </svg>
+            <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: enableVoice ? 'var(--color-brand-primary)' : 'rgba(255,255,255,0.2)' }}>
+              {enableVoice ? 'Voice On' : 'Voice Off'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <svg 
+              width="10" height="10" viewBox="0 0 24 24" 
+              fill={enableHaptics ? 'var(--color-brand-primary)' : 'currentColor'}
+              style={{ color: enableHaptics ? 'var(--color-brand-primary)' : 'rgba(255,255,255,0.2)' }}
+            >
+              <path d="M13.5 1.5C13.5.67 12.83 0 12 0s-1.5.67-1.5 1.5v4.25L8.5 3.25c-.59-.59-1.54-.59-2.12 0-.59.59-.59 1.54 0 2.12l5.24 5.24c.29.29.67.44 1.06.44h4.5c.83 0 1.5-.67 1.5-1.5v-3c0-.83-.67-1.5-1.5-1.5h-1.5V3.75c0-.83-.67-1.5-1.5-1.5H13.5V1.5zm-7 15v4c0 .83.67 1.5 1.5 1.5h6c.83 0 1.5-.67 1.5-1.5v-3c0-.83-.67-1.5-1.5-1.5h-1.5v-1.75c0-.83-.67-1.5-1.5-1.5-.83 0-1.5.67-1.5 1.5V15h-.5c-.83 0-1.5.67-1.5 1.5z" />
+            </svg>
+            <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: enableHaptics ? 'var(--color-brand-primary)' : 'rgba(255,255,255,0.2)' }}>
+              {enableHaptics ? 'Haptics' : 'Silent'}
+            </span>
+          </div>
         </div>
       </div>
 

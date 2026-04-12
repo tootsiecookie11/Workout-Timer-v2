@@ -218,13 +218,18 @@ export default function TransitionOverlay() {
 
         /* Work transitions: slide from right */
         @keyframes nameRevealWork {
-          0%   { transform: translateX(32px); opacity: 0; filter: blur(12px); }
-          100% { transform: translateX(0);    opacity: 1; filter: blur(0); }
+          0%   { transform: translateX(32px) scale(0.92); opacity: 0; filter: blur(12px); }
+          100% { transform: translateX(0)    scale(1);    opacity: 1; filter: blur(0); }
         }
         /* Rest transitions: float up */
         @keyframes nameRevealRest {
-          0%   { transform: translateY(28px); opacity: 0; filter: blur(12px); }
-          100% { transform: translateY(0);    opacity: 1; filter: blur(0); }
+          0%   { transform: translateY(28px) scale(0.92); opacity: 0; filter: blur(12px); }
+          100% { transform: translateY(0)    scale(1);    opacity: 1; filter: blur(0); }
+        }
+        
+        @keyframes namePulse {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.02); }
         }
 
         /* Scan-line sweep across the step name */
@@ -366,7 +371,7 @@ export default function TransitionOverlay() {
                 style={{
                   fontSize:  'clamp(2rem, 9vw, 4.5rem)',
                   color:     'var(--color-brand-text)',
-                  animation: `${isToRest ? 'nameRevealRest' : 'nameRevealWork'} 0.42s cubic-bezier(0.22,1,0.36,1) 0.06s both`,
+                  animation: `${isToRest ? 'nameRevealRest' : 'nameRevealWork'} 0.42s cubic-bezier(0.22,1,0.36,1) 0.06s both, namePulse 6s ease-in-out 0.6s infinite`,
                 }}
               >
                 {transitionToStep.label}
