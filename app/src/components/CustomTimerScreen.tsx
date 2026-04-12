@@ -177,116 +177,186 @@ const C = {
 
 // ─── useDragOrder ─────────────────────────────────────────────────────────────
 //
-// Pointer-capture drag with:
-//  • floating effect (box-shadow + scale) applied directly to the DOM element
-//  • blue drop-indicator line at the target gap
-//  • reorder committed only on pointerUp (no layout shifts during drag)
+// Pointer-capture drag (mouse + touch via unified pointer events) with:
+//  • floating clone that follows the exact container shape (border-radius aware)
+//  • ghost uses box-shadow instead of outline so it follows rounded corners
+//  • dropIdx exposed as React state so DropLine components can react to it
+//  • siblings shift via CSS transform to open a gap at the insertion point
+//  • reorder committed only on pointerUp — no layout shifts during drag
+
+// ── Internal drag state (per useDragOrder instance) ──────────────────────────
+interface DragState {
+  id:         string;
+  origIdx:    number;
+  offsetY:    number;  // pointer Y offset from element top
+  itemHeight: number;
+  floater:    HTMLElement;
+  origEl:     HTMLElement;
+}
 
 function useDragOrder<T extends { id: string }>(
   items: T[],
   onReorder: (next: T[]) => void,
 ) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropIndex,  setDropIndex]  = useState<number>(-1);
+  // dropIdx as state so DropLine components re-render when the target gap changes
+  const [dropIdx, setDropIdx] = useState<number>(-1);
 
-  // Refs track values that must be read in callbacks without re-memoizing
-  const dragRef      = useRef<{ id: string; origIdx: number; startY: number } | null>(null);
-  const dropIdxRef   = useRef(-1);
-  const listRef      = useRef<HTMLDivElement>(null);
+  const dragRef    = useRef<DragState | null>(null);
+  const dropIdxRef = useRef(-1);
+  const listRef    = useRef<HTMLDivElement>(null);
+
+  // ── Shared cleanup ─────────────────────────────────────────────────────────
+  const cleanup = useCallback(() => {
+    const dr = dragRef.current;
+    if (!dr) return;
+
+    dr.floater.remove();
+
+    // Restore ghost — clear all inline overrides
+    dr.origEl.style.opacity    = '';
+    dr.origEl.style.boxShadow  = '';
+    dr.origEl.style.filter     = '';
+    dr.origEl.style.transition = '';
+
+    // Restore all sibling shifts
+    const list = listRef.current;
+    if (list) {
+      (Array.from(list.children) as HTMLElement[])
+        .filter((el) => el.dataset.id)
+        .forEach((el) => {
+          el.style.transform  = '';
+          el.style.transition = '';
+        });
+    }
+
+    dragRef.current    = null;
+    dropIdxRef.current = -1;
+    setDraggingId(null);
+    setDropIdx(-1);
+  }, []);
+
+  useEffect(() => () => { dragRef.current?.floater.remove(); }, []);
 
   const getHandleProps = useCallback(
     (id: string): React.HTMLAttributes<HTMLDivElement> => ({
+      // Prevent browser scroll/pan so the element can be dragged on touch devices
+      style: { touchAction: 'none' } as React.CSSProperties,
+
       onPointerDown(e) {
         e.preventDefault();
         const origIdx = items.findIndex((it) => it.id === id);
         if (origIdx === -1) return;
-        dragRef.current = { id, origIdx, startY: e.clientY };
+
+        const origEl = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-id]');
+        if (!origEl) return;
+
+        const rect       = origEl.getBoundingClientRect();
+        const itemHeight = rect.height;
+        const br         = window.getComputedStyle(origEl).borderRadius;
+
+        // ── Floating clone — shape follows the original's border-radius ────
+        const floater = origEl.cloneNode(true) as HTMLElement;
+        floater.removeAttribute('data-id');
+        floater.id = '__dnd_floater__';
+        Object.assign(floater.style, {
+          position:      'fixed',
+          top:           `${rect.top}px`,
+          left:          `${rect.left}px`,
+          width:         `${rect.width}px`,
+          height:        `${rect.height}px`,
+          margin:        '0',
+          // overflow:hidden clips any children that extend past border-radius
+          // so box-shadow + outline both follow the true shape
+          overflow:      'hidden',
+          pointerEvents: 'none',
+          zIndex:        '9999',
+          borderRadius:  br,
+          willChange:    'top',
+          transform:     'scale(1.04) rotate(0.5deg)',
+          // The 0 0 0 2px layer is the shape-following blue outline
+          boxShadow:     '0 24px 56px rgba(0,0,0,0.82), 0 0 0 2px rgba(88,166,255,0.9), 0 0 36px rgba(88,166,255,0.22)',
+          transition:    'transform 0.16s cubic-bezier(0.2,0,0,1), box-shadow 0.16s',
+        });
+        document.body.appendChild(floater);
+
+        // ── Ghost — box-shadow instead of outline so it follows border-radius ──
+        Object.assign(origEl.style, {
+          opacity:    '0.25',
+          boxShadow:  '0 0 0 1.5px rgba(255,255,255,0.15)',
+          filter:     'grayscale(0.4) blur(0.3px)',
+          transition: 'opacity 0.15s, filter 0.15s',
+        });
+
+        dragRef.current = {
+          id, origIdx,
+          offsetY:    e.clientY - rect.top,
+          itemHeight,
+          floater,
+          origEl,
+        };
         dropIdxRef.current = origIdx;
         setDraggingId(id);
-        setDropIndex(origIdx);
+        setDropIdx(origIdx);
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       },
 
       onPointerMove(e) {
-        if (!dragRef.current || dragRef.current.id !== id) return;
+        const dr = dragRef.current;
+        if (!dr || dr.id !== id) return;
         const list = listRef.current;
         if (!list) return;
 
-        const dy = e.clientY - dragRef.current.startY;
+        // Move floater — position is instant, no transition on top
+        dr.floater.style.top        = `${e.clientY - dr.offsetY}px`;
+        dr.floater.style.transform  = 'scale(1.04) rotate(0.5deg)';
+        dr.floater.style.transition = 'box-shadow 0.1s';
 
-        // Only children that have data-id (item wrappers, not drop lines etc.)
+        // ── Recalculate drop index ─────────────────────────────────────────
         const children = (Array.from(list.children) as HTMLElement[]).filter(
           (el) => el.dataset.id,
         );
 
-        // Apply floating style to the dragged element
-        const dragEl = children.find((el) => el.dataset.id === id);
-        if (dragEl) {
-          // No transition on transform — must track cursor instantly
-          dragEl.style.transform  = `translateY(${dy}px) scale(1.04)`;
-          dragEl.style.zIndex     = '50';
-          dragEl.style.position   = 'relative';
-          dragEl.style.opacity    = '0.96';
-          dragEl.style.boxShadow  =
-            '0 36px 90px rgba(0,0,0,0.8), 0 0 0 2px rgba(88,166,255,0.7), 0 0 60px rgba(88,166,255,0.12)';
-          dragEl.style.transition = 'box-shadow 0.1s, opacity 0.1s';
-        }
-
-        // Dim all other items so the floating card pops
-        children.forEach((el) => {
-          if (el.dataset.id !== id) {
-            el.style.opacity    = '0.4';
-            el.style.transition = 'opacity 0.18s';
-          }
-        });
-
-        // Calculate drop index based on pointer vs. non-dragging items' centres
         let newDropIdx = items.length;
         for (let i = 0; i < children.length; i++) {
-          const el = children[i];
-          if (el.dataset.id === id) continue;
-          const r = el.getBoundingClientRect();
+          if (children[i].dataset.id === id) continue;
+          const r = children[i].getBoundingClientRect();
           if (e.clientY < r.top + r.height / 2) {
             newDropIdx = i;
             break;
           }
         }
 
+        // ── Shift siblings — snap-spring timing, expo ease-out ─────────────
+        const gap = dr.itemHeight + 8;
+        children.forEach((el, i) => {
+          if (el.dataset.id === id) return;
+          let shift = 0;
+          if (dr.origIdx < newDropIdx) {
+            if (i > dr.origIdx && i <= newDropIdx - 1) shift = -gap;
+          } else {
+            if (i >= newDropIdx && i < dr.origIdx) shift = gap;
+          }
+          el.style.transform  = shift ? `translateY(${shift}px)` : '';
+          el.style.transition = 'transform 0.2s cubic-bezier(0.16,1,0.3,1)';
+        });
+
+        // Only trigger re-render when the insertion slot actually changes
         if (newDropIdx !== dropIdxRef.current) {
           dropIdxRef.current = newDropIdx;
-          setDropIndex(newDropIdx);
+          setDropIdx(newDropIdx);
         }
       },
 
       onPointerUp() {
-        if (!dragRef.current || dragRef.current.id !== id) return;
+        const dr = dragRef.current;
+        if (!dr || dr.id !== id) return;
 
-        // Reset visual styles on all elements
-        const list = listRef.current;
-        if (list) {
-          const children = (Array.from(list.children) as HTMLElement[]).filter(
-            (el) => el.dataset.id,
-          );
-          children.forEach((el) => {
-            el.style.transform  = '';
-            el.style.zIndex     = '';
-            el.style.position   = '';
-            el.style.boxShadow  = '';
-            el.style.opacity    = '';
-            el.style.transition = '';
-          });
-        }
-
-        // Commit reorder
-        const origIdx  = dragRef.current.origIdx;
+        const origIdx  = dr.origIdx;
         let   finalIdx = dropIdxRef.current;
-        // Removing origIdx shifts subsequent positions down by 1
         if (finalIdx > origIdx) finalIdx--;
 
-        dragRef.current = null;
-        setDraggingId(null);
-        setDropIndex(-1);
-        dropIdxRef.current = -1;
+        cleanup();
 
         if (finalIdx !== origIdx && finalIdx >= 0 && finalIdx < items.length) {
           const next = [...items];
@@ -295,11 +365,15 @@ function useDragOrder<T extends { id: string }>(
           onReorder(next);
         }
       },
+
+      onLostPointerCapture() {
+        if (dragRef.current?.id === id) cleanup();
+      },
     }),
-    [items, onReorder],
+    [items, onReorder, cleanup],
   );
 
-  return { listRef, getHandleProps, draggingId, dropIndex };
+  return { listRef, getHandleProps, draggingId, dropIdx };
 }
 
 // ─── DropLine ─────────────────────────────────────────────────────────────────
@@ -498,10 +572,10 @@ function GroupContainer({
 
   // Each group manages its own children drag independently
   const {
-    listRef:    childListRef,
+    listRef:        childListRef,
     getHandleProps: childHandleProps,
-    draggingId: childDraggingId,
-    dropIndex:  childDropIdx,
+    draggingId:     childDraggingId,
+    dropIdx:        childDropIdx,
   } = useDragOrder<ListItem>(group.children, (newChildren) => {
     ctx.setItems((prev) =>
       updateItemById(prev, group.id, (item) => ({
@@ -651,7 +725,10 @@ function GroupContainer({
               {group.children.map((child, i) => (
                 <React.Fragment key={child.id}>
                   <DropLine active={childDraggingId !== null && childDropIdx === i} />
-                  <div data-id={child.id} style={{ marginBottom: 8 }}>
+                  <div
+                    data-id={child.id}
+                    style={{ marginBottom: 8, animation: `listIn 0.2s ease-out ${i * 0.04}s both` }}
+                  >
                     {child.kind === 'group' ? (
                       <GroupContainer
                         group={child}
@@ -1092,7 +1169,7 @@ export default function CustomTimerScreen() {
   const [editing, setEditing] = useState<EditTarget>(null);
 
   // Top-level drag
-  const { listRef, getHandleProps, draggingId, dropIndex } = useDragOrder<ListItem>(
+  const { listRef, getHandleProps, draggingId, dropIdx } = useDragOrder<ListItem>(
     items,
     setItems,
   );
@@ -1215,34 +1292,32 @@ export default function CustomTimerScreen() {
 
         {/* Item list */}
         {items.length > 0 && (
-          <>
-            <div ref={listRef} className="flex flex-col">
-              {items.map((item, i) => (
-                <React.Fragment key={item.id}>
-                  <DropLine active={draggingId !== null && dropIndex === i} />
-                  <div
-                    data-id={item.id}
-                    style={{ marginBottom: 12, animation: `listIn 0.22s ease-out ${i * 0.04}s both` }}
-                  >
-                    {item.kind === 'group' ? (
-                      <GroupContainer
-                        group={item}
-                        dragHandleProps={getHandleProps(item.id)}
-                      />
-                    ) : (
-                      <ItemPill
-                        item={item}
-                        onEdit={() => setEditing({ id: item.id, type: 'flat' })}
-                        onRemove={() => setItems((prev) => removeItemById(prev, item.id))}
-                        dragHandleProps={getHandleProps(item.id)}
-                      />
-                    )}
-                  </div>
-                </React.Fragment>
-              ))}
-              <DropLine active={draggingId !== null && dropIndex >= items.length} />
-            </div>
-          </>
+          <div ref={listRef} className="flex flex-col">
+            {items.map((item, i) => (
+              <React.Fragment key={item.id}>
+                <DropLine active={draggingId !== null && dropIdx === i} />
+                <div
+                  data-id={item.id}
+                  style={{ marginBottom: 12, animation: `listIn 0.22s ease-out ${i * 0.04}s both` }}
+                >
+                  {item.kind === 'group' ? (
+                    <GroupContainer
+                      group={item}
+                      dragHandleProps={getHandleProps(item.id)}
+                    />
+                  ) : (
+                    <ItemPill
+                      item={item}
+                      onEdit={() => setEditing({ id: item.id, type: 'flat' })}
+                      onRemove={() => setItems((prev) => removeItemById(prev, item.id))}
+                      dragHandleProps={getHandleProps(item.id)}
+                    />
+                  )}
+                </div>
+              </React.Fragment>
+            ))}
+            <DropLine active={draggingId !== null && dropIdx >= items.length} />
+          </div>
         )}
 
         {/* Summary + Start */}
