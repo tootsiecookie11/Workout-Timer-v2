@@ -217,7 +217,7 @@ export class TimerEngine {
 
   private _completeStep(): void {
     const step = this.steps[this.stepIndex];
-    this.stepsCompleted++;
+    if (step.type === 'exercise') this.stepsCompleted++;
     this.onEvent({ type: 'step:complete', data: step });
     this._beginStep(this.stepIndex + 1);
   }

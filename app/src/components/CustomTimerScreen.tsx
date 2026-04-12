@@ -525,7 +525,7 @@ function GroupContainer({
   function handleAddChild(kind: ItemKind) {
     const newItem: ListItem =
       kind === 'group'
-        ? { id: uid(), kind: 'group', label: 'Group', rounds: 3, children: [], expanded: true }
+        ? { id: uid(), kind: 'group', label: 'Group', rounds: 3, children: [], expanded: false }
         : {
             id:       uid(),
             kind,
@@ -545,12 +545,9 @@ function GroupContainer({
       style={{
         background: `${C.blue}0.06)`,
         border:     `1px solid ${C.blue}0.22)`,
-        // Whole card is a click zone when collapsed; just header when expanded
-        cursor: !group.expanded ? 'pointer' : 'default',
       }}
-      onClick={!group.expanded ? toggleExpanded : undefined}
     >
-      {/* ── Header row — always clickable to toggle ── */}
+      {/* ── Header row — primary click zone to toggle expansion ── */}
       <div
         className="flex items-center gap-3 px-4 py-4 cursor-pointer select-none rounded-3xl"
         onClick={toggleExpanded}
@@ -650,42 +647,29 @@ function GroupContainer({
             className="ml-4 pl-4"
             style={{ borderLeft: `1.5px solid ${C.blue}0.18)` }}
           >
-            {group.children.length === 0 ? (
-              <p
-                className="text-xs text-center py-4 rounded-2xl"
-                style={{
-                  color:      'rgba(255,255,255,0.2)',
-                  background: 'rgba(255,255,255,0.02)',
-                  border:     '1px dashed rgba(255,255,255,0.08)',
-                }}
-              >
-                Tap + below to add items inside this group
-              </p>
-            ) : (
-              <div ref={childListRef} className="flex flex-col">
-                {group.children.map((child, i) => (
-                  <React.Fragment key={child.id}>
-                    <DropLine active={childDraggingId !== null && childDropIdx === i} />
-                    <div data-id={child.id} style={{ marginBottom: 8 }}>
-                      {child.kind === 'group' ? (
-                        <GroupContainer
-                          group={child}
-                          dragHandleProps={childHandleProps(child.id)}
-                        />
-                      ) : (
-                        <ItemPill
-                          item={child}
-                          onEdit={() => ctx.setEditing({ id: child.id, type: 'flat' })}
-                          onRemove={() => ctx.setItems((prev) => removeItemById(prev, child.id))}
-                          dragHandleProps={childHandleProps(child.id)}
-                        />
-                      )}
-                    </div>
-                  </React.Fragment>
-                ))}
-                <DropLine active={childDraggingId !== null && childDropIdx >= group.children.length} />
-              </div>
-            )}
+            <div ref={childListRef} className="flex flex-col">
+              {group.children.map((child, i) => (
+                <React.Fragment key={child.id}>
+                  <DropLine active={childDraggingId !== null && childDropIdx === i} />
+                  <div data-id={child.id} style={{ marginBottom: 8 }}>
+                    {child.kind === 'group' ? (
+                      <GroupContainer
+                        group={child}
+                        dragHandleProps={childHandleProps(child.id)}
+                      />
+                    ) : (
+                      <ItemPill
+                        item={child}
+                        onEdit={() => ctx.setEditing({ id: child.id, type: 'flat' })}
+                        onRemove={() => ctx.setItems((prev) => removeItemById(prev, child.id))}
+                        dragHandleProps={childHandleProps(child.id)}
+                      />
+                    )}
+                  </div>
+                </React.Fragment>
+              ))}
+              <DropLine active={childDraggingId !== null && childDropIdx >= group.children.length} />
+            </div>
 
             {/* Inner FAB — add items to this group */}
             <InnerFAB onAdd={handleAddChild} />
@@ -1123,7 +1107,7 @@ export default function CustomTimerScreen() {
     setError('');
     let newItem: ListItem;
     if (kind === 'group') {
-      newItem = { id: uid(), kind: 'group', label: 'Group', rounds: 3, children: [], expanded: true };
+      newItem = { id: uid(), kind: 'group', label: 'Group', rounds: 3, children: [], expanded: false };
     } else {
       newItem = {
         id:       uid(),

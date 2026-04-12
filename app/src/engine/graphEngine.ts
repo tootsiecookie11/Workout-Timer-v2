@@ -298,7 +298,7 @@ export class GraphEngine {
 
       if (duration > 0 && elapsed >= duration) {
         this._stopHeartbeat();
-        this._stepsCompleted++;
+        if (step.type === 'exercise') this._stepsCompleted++;
         this._emit({ type: 'step:complete', data: step });
         this._advance();
       }
