@@ -1,20 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNotionConfig } from './useNotionConfig';
 import type { ConfigStatus, WorkoutAST } from './useNotionWorkouts';
-
-// ─── Env config ───────────────────────────────────────────────────────────────
-// Add these to app/.env alongside the existing Notion vars:
-//   VITE_NOTION_PROGRAMS_DB_ID        <notion programs database id>
-//   VITE_NOTION_PROGRAM_DAYS_DB_ID    <notion program days database id>
-//
-// Shared with useNotionWorkouts:
-//   VITE_WORKER_URL                   https://your-worker.workers.dev
-//   VITE_NOTION_BLOCKS_DB_ID          <notion blocks database id>
-
-const WORKER_URL       = (import.meta.env.VITE_WORKER_URL                as string | undefined) ?? '';
-const PROGRAMS_DB_ID   = (import.meta.env.VITE_NOTION_PROGRAMS_DB_ID     as string | undefined) ?? '';
-const DAYS_DB_ID       = (import.meta.env.VITE_NOTION_PROGRAM_DAYS_DB_ID as string | undefined) ?? '';
-const BLOCKS_DB_ID     = (import.meta.env.VITE_NOTION_BLOCKS_DB_ID       as string | undefined) ?? '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +83,11 @@ function calculateCurrentDay(
  * Resolves the user's active Notion workout program, calculates today's
  * "Week X, Day Y" position, and exposes a helper to fetch that day's workout.
  *
+ * Config resolution:
+ *   DB IDs come from settingsStore (user-entered in Settings → Notion Vault)
+ *   with VITE_NOTION_*_DB_ID env vars as fallbacks. useNotionConfig() handles
+ *   the merge so developers can rely on .env files without touching the UI.
+ *
  * Auth flow mirrors useNotionWorkouts:
  *   Supabase session.provider_token (Notion OAuth) → Authorization: Bearer header.
  *
@@ -105,6 +97,8 @@ function calculateCurrentDay(
  *                        + auto-created back-relation "Program" → Programs DB
  */
 export function useNotionPrograms() {
+  const cfg = useNotionConfig();
+
   const [status,      setStatus]      = useState<ConfigStatus>('checking');
   const [notionToken, setToken]       = useState<string | null>(null);
 
@@ -113,9 +107,9 @@ export function useNotionPrograms() {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
 
-  // ── Resolve auth + env on mount ──────────────────────────────────────────
+  // ── Resolve auth + config on mount (and whenever config changes) ──────────
   useEffect(() => {
-    if (!WORKER_URL || !PROGRAMS_DB_ID) {
+    if (!cfg.workerUrl || !cfg.programsDbId) {
       setStatus('no_config');
       return;
     }
@@ -130,20 +124,20 @@ export function useNotionPrograms() {
       const token = session?.provider_token ?? null;
       setToken(token);
       setStatus(
-        !WORKER_URL || !PROGRAMS_DB_ID ? 'no_config'
-        : token                        ? 'ready'
-        :                                'no_auth',
+        !cfg.workerUrl || !cfg.programsDbId ? 'no_config'
+        : token                             ? 'ready'
+        :                                     'no_auth',
       );
     });
 
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [cfg.workerUrl, cfg.programsDbId]);
 
   // ── Fetch active program + schedule once authenticated ────────────────────
   useEffect(() => {
     if (status !== 'ready' || !notionToken) return;
     void loadSchedule(notionToken);
-  }, [status, notionToken]);
+  }, [status, notionToken, cfg.workerUrl, cfg.programsDbId, cfg.daysDbId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadSchedule(token: string): Promise<void> {
     setLoading(true);
@@ -151,10 +145,10 @@ export function useNotionPrograms() {
 
     try {
       // 1. Fetch program list
-      const programsRes = await fetch(`${WORKER_URL}/api/programs`, {
+      const programsRes = await fetch(`${cfg.workerUrl}/api/programs`, {
         headers: {
-          'Authorization':         `Bearer ${token}`,
-          'X-Programs-Database-Id': PROGRAMS_DB_ID,
+          'Authorization':          `Bearer ${token}`,
+          'X-Programs-Database-Id': cfg.programsDbId,
         },
       });
       if (!programsRes.ok) {
@@ -180,8 +174,8 @@ export function useNotionPrograms() {
         return;
       }
 
-      // 4. Fetch the day schedule (non-fatal if DAYS_DB_ID not configured)
-      if (!DAYS_DB_ID) {
+      // 4. Fetch the day schedule (non-fatal if daysDbId not configured)
+      if (!cfg.daysDbId) {
         setToday({
           program_id:   active.id,
           program_name: active.name,
@@ -194,10 +188,10 @@ export function useNotionPrograms() {
         return;
       }
 
-      const scheduleRes = await fetch(`${WORKER_URL}/api/program/${active.id}/schedule`, {
+      const scheduleRes = await fetch(`${cfg.workerUrl}/api/program/${active.id}/schedule`, {
         headers: {
-          'Authorization':    `Bearer ${token}`,
-          'X-Days-Database-Id': DAYS_DB_ID,
+          'Authorization':      `Bearer ${token}`,
+          'X-Days-Database-Id': cfg.daysDbId,
         },
       });
 
@@ -237,13 +231,13 @@ export function useNotionPrograms() {
   // ── Fetch the full workout block tree for today's scheduled workout ────────
   const fetchTodaysWorkoutAST = useCallback(async (): Promise<WorkoutAST | null> => {
     const workoutId = today?.day_info?.workout_template_id;
-    if (!workoutId || !notionToken || !BLOCKS_DB_ID) return null;
+    if (!workoutId || !notionToken || !cfg.blocksDbId) return null;
 
     try {
-      const r = await fetch(`${WORKER_URL}/api/workout/${workoutId}`, {
+      const r = await fetch(`${cfg.workerUrl}/api/workout/${workoutId}`, {
         headers: {
           'Authorization':        `Bearer ${notionToken}`,
-          'X-Blocks-Database-Id': BLOCKS_DB_ID,
+          'X-Blocks-Database-Id': cfg.blocksDbId,
         },
       });
       if (!r.ok) return null;
@@ -251,7 +245,7 @@ export function useNotionPrograms() {
     } catch {
       return null;
     }
-  }, [notionToken, today]);
+  }, [notionToken, today, cfg.workerUrl, cfg.blocksDbId]);
 
   // ── Trigger Notion OAuth (same flow as useNotionWorkouts) ─────────────────
   const connectNotion = useCallback(async () => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   useSettingsStore,
   type TransitionDuration,
+  type NotionConfig,
 } from '../store/settingsStore';
 import { useTimerStore } from '../store/timerStore';
 import { downloadVault, type ExportFormat } from '../lib/exportVault';
@@ -448,6 +449,199 @@ function VaultSection() {
   );
 }
 
+// ─── Notion Vault section ─────────────────────────────────────────────────────
+
+const NOTION_FIELDS: {
+  key:         keyof NotionConfig;
+  label:       string;
+  placeholder: string;
+}[] = [
+  { key: 'workoutsDatabaseId', label: 'Workouts DB',  placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+  { key: 'blocksDatabaseId',   label: 'Blocks DB',    placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+  { key: 'programsDatabaseId', label: 'Programs DB',  placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+  { key: 'sessionsDatabaseId', label: 'Sessions DB',  placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+];
+
+const EYE_ON  = 'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z';
+const EYE_OFF = 'M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z';
+
+function NotionVaultSection() {
+  const notionConfig          = useSettingsStore((s) => s.notionConfig);
+  const setWorkoutsDatabaseId = useSettingsStore((s) => s.setWorkoutsDatabaseId);
+  const setBlocksDatabaseId   = useSettingsStore((s) => s.setBlocksDatabaseId);
+  const setProgramsDatabaseId = useSettingsStore((s) => s.setProgramsDatabaseId);
+  const setSessionsDatabaseId = useSettingsStore((s) => s.setSessionsDatabaseId);
+
+  const [revealed, setRevealed] = useState<Partial<Record<keyof NotionConfig, boolean>>>({});
+
+  const setters: Record<keyof NotionConfig, (id: string) => void> = {
+    workoutsDatabaseId: setWorkoutsDatabaseId,
+    blocksDatabaseId:   setBlocksDatabaseId,
+    programsDatabaseId: setProgramsDatabaseId,
+    sessionsDatabaseId: setSessionsDatabaseId,
+  };
+
+  function toggleReveal(key: keyof NotionConfig) {
+    setRevealed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const filledCount = NOTION_FIELDS.filter(({ key }) => notionConfig[key].trim() !== '').length;
+
+  return (
+    <div>
+      {/* Subtitle */}
+      <p style={{
+        margin:     '0 0 14px',
+        fontSize:   '12px',
+        lineHeight: 1.55,
+        color:      'rgba(237,228,250,0.38)',
+      }}>
+        {filledCount === 0
+          ? 'Paste your Notion database IDs to enable sync. IDs are stored locally only.'
+          : `${filledCount} of 4 database${filledCount !== 1 ? 's' : ''} configured.`}
+      </p>
+
+      {/* ID inputs */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {NOTION_FIELDS.map(({ key, label, placeholder }) => {
+          const value    = notionConfig[key];
+          const isSet    = value.trim() !== '';
+          const isShown  = !!revealed[key];
+
+          return (
+            <div key={key}>
+              {/* Field label */}
+              <p style={{
+                margin:        '0 0 5px',
+                fontSize:      '11px',
+                fontWeight:    600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color:         isSet ? 'rgba(169,229,187,0.6)' : 'rgba(237,228,250,0.3)',
+                transition:    'color 200ms ease',
+              }}>
+                {label}
+                {isSet && (
+                  <span style={{
+                    marginLeft:  '6px',
+                    fontSize:    '9px',
+                    fontWeight:  700,
+                    color:       'var(--color-brand-primary)',
+                    verticalAlign: 'middle',
+                  }}>
+                    ✓ SET
+                  </span>
+                )}
+              </p>
+
+              {/* Input row */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={isShown ? 'text' : 'password'}
+                  value={value}
+                  onChange={(e) => setters[key](e.target.value)}
+                  placeholder={placeholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{
+                    flex:          1,
+                    padding:       '10px 44px 10px 13px',
+                    borderRadius:  '10px',
+                    border:        `1px solid ${isSet ? 'rgba(169,229,187,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                    background:    isSet ? 'rgba(169,229,187,0.04)' : 'rgba(255,255,255,0.03)',
+                    color:         'rgba(237,228,250,0.85)',
+                    fontSize:      '13px',
+                    fontFamily:    'monospace',
+                    letterSpacing: isShown ? '0.02em' : '0.12em',
+                    outline:       'none',
+                    transition:    'border-color 200ms ease, background 200ms ease',
+                    width:         '100%',
+                    boxSizing:     'border-box',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(169,229,187,0.35)';
+                    e.currentTarget.style.background  = 'rgba(169,229,187,0.06)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = isSet ? 'rgba(169,229,187,0.2)' : 'rgba(255,255,255,0.07)';
+                    e.currentTarget.style.background  = isSet ? 'rgba(169,229,187,0.04)' : 'rgba(255,255,255,0.03)';
+                  }}
+                />
+
+                {/* Reveal / hide toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleReveal(key)}
+                  aria-label={isShown ? `Hide ${label}` : `Reveal ${label}`}
+                  style={{
+                    position:       'absolute',
+                    right:          '10px',
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                    width:          '26px',
+                    height:         '26px',
+                    borderRadius:   '6px',
+                    border:         'none',
+                    background:     'transparent',
+                    color:          isShown ? 'rgba(169,229,187,0.55)' : 'rgba(237,228,250,0.25)',
+                    cursor:         'pointer',
+                    transition:     'color 150ms ease',
+                    outline:        'none',
+                    padding:        0,
+                    flexShrink:     0,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,228,250,0.7)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = isShown
+                      ? 'rgba(169,229,187,0.55)'
+                      : 'rgba(237,228,250,0.25)';
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d={isShown ? EYE_OFF : EYE_ON} />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Helper link */}
+      <a
+        href="https://developers.notion.com/docs/working-with-databases"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display:        'inline-flex',
+          alignItems:     'center',
+          gap:            '4px',
+          marginTop:      '12px',
+          fontSize:       '11px',
+          fontWeight:     600,
+          color:          'rgba(169,229,187,0.5)',
+          textDecoration: 'none',
+          transition:     'color 150ms ease',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-brand-primary)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(169,229,187,0.5)';
+        }}
+      >
+        How to find IDs?
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+        </svg>
+      </a>
+    </div>
+  );
+}
+
 // ─── Main Drawer ──────────────────────────────────────────────────────────────
 
 export default function SettingsDrawer({ open, onClose }: Props) {
@@ -653,6 +847,12 @@ export default function SettingsDrawer({ open, onClose }: Props) {
           {/* ── Vault section ─────────────────────────────────────────────── */}
           <SectionLabel>Vault</SectionLabel>
           <VaultSection />
+
+          <Divider />
+
+          {/* ── Notion Vault section ──────────────────────────────────────── */}
+          <SectionLabel>Notion Vault</SectionLabel>
+          <NotionVaultSection />
 
         </div>
 

@@ -1,18 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNotionConfig } from './useNotionConfig';
 import type { WorkoutBlock } from '../engine/types';
-
-// ─── Env config ───────────────────────────────────────────────────────────────
-// Set these in app/.env (or .env.local):
-//   VITE_WORKER_URL               https://your-worker.workers.dev
-//   VITE_NOTION_WORKOUTS_DB_ID    <notion workouts database id>
-//   VITE_NOTION_BLOCKS_DB_ID      <notion blocks database id>
-//   VITE_NOTION_SESSIONS_DB_ID    <notion sessions database id>
-
-const WORKER_URL      = (import.meta.env.VITE_WORKER_URL      as string | undefined) ?? '';
-const WORKOUTS_DB_ID  = (import.meta.env.VITE_NOTION_WORKOUTS_DB_ID as string | undefined) ?? '';
-const BLOCKS_DB_ID    = (import.meta.env.VITE_NOTION_BLOCKS_DB_ID   as string | undefined) ?? '';
-const SESSIONS_DB_ID  = (import.meta.env.VITE_NOTION_SESSIONS_DB_ID as string | undefined) ?? '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +29,7 @@ export interface WorkoutAST {
 export type ConfigStatus =
   | 'checking'     // still awaiting auth session resolve
   | 'no_auth'      // Supabase session exists but no provider_token (Notion not connected)
-  | 'no_config'    // env vars missing (WORKER_URL or WORKOUTS_DB_ID not set)
+  | 'no_config'    // worker URL or DB ID not set (neither env var nor settings store)
   | 'ready';       // token + config present — can fetch
 
 // ─── Main hook ────────────────────────────────────────────────────────────────
@@ -49,12 +38,19 @@ export type ConfigStatus =
  * Fetches the workout list from the Galawgaw worker API.
  * Also exposes helpers to fetch per-workout blocks and fatigue scores.
  *
+ * Config resolution:
+ *   DB IDs come from settingsStore (user-entered in Settings → Notion Vault)
+ *   with VITE_NOTION_*_DB_ID env vars as fallbacks. useNotionConfig() handles
+ *   the merge so developers can rely on .env files without touching the UI.
+ *
  * Auth flow:
  *   1. User signs in via Supabase Notion OAuth → session.provider_token = Notion access token.
  *   2. That token is forwarded as `Authorization: Bearer <token>` to the worker.
  *   3. The worker calls Notion APIs on the user's behalf.
  */
 export function useNotionWorkouts() {
+  const cfg = useNotionConfig();
+
   const [status, setStatus]     = useState<ConfigStatus>('checking');
   const [notionToken, setToken] = useState<string | null>(null);
 
@@ -63,9 +59,9 @@ export function useNotionWorkouts() {
   const [error, setError]       = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // ── Resolve auth + env on mount ──────────────────────────────────────────
+  // ── Resolve auth + config on mount (and whenever config changes) ──────────
   useEffect(() => {
-    if (!WORKER_URL || !WORKOUTS_DB_ID) {
+    if (!cfg.workerUrl || !cfg.workoutsDbId) {
       setStatus('no_config');
       return;
     }
@@ -81,7 +77,7 @@ export function useNotionWorkouts() {
       const token = session?.provider_token ?? null;
       setToken(token);
       setStatus(
-        !WORKER_URL || !WORKOUTS_DB_ID
+        !cfg.workerUrl || !cfg.workoutsDbId
           ? 'no_config'
           : token
           ? 'ready'
@@ -90,19 +86,19 @@ export function useNotionWorkouts() {
     });
 
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [cfg.workerUrl, cfg.workoutsDbId]);
 
-  // ── Fetch workout list once token is available ──────────────────────────
+  // ── Fetch workout list once token + config are available ──────────────────
   useEffect(() => {
     if (status !== 'ready' || !notionToken) return;
 
     setLoading(true);
     setError(null);
 
-    fetch(`${WORKER_URL}/api/workouts`, {
+    fetch(`${cfg.workerUrl}/api/workouts`, {
       headers: {
-        'Authorization':         `Bearer ${notionToken}`,
-        'X-Workouts-Database-Id': WORKOUTS_DB_ID,
+        'Authorization':          `Bearer ${notionToken}`,
+        'X-Workouts-Database-Id': cfg.workoutsDbId,
       },
     })
       .then((r) => r.ok
@@ -112,17 +108,17 @@ export function useNotionWorkouts() {
       .then((data: WorkoutSummary[]) => setWorkouts(data))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [status, notionToken, refreshKey]);
+  }, [status, notionToken, refreshKey, cfg.workerUrl, cfg.workoutsDbId]);
 
   // ── Fetch fatigue score for a specific workout ────────────────────────────
   const fetchFatigue = useCallback(
     async (workoutId: string): Promise<WorkoutFatigue | null> => {
-      if (!notionToken || !SESSIONS_DB_ID) return null;
+      if (!notionToken || !cfg.sessionsDbId) return null;
       try {
-        const r = await fetch(`${WORKER_URL}/api/fatigue/${workoutId}`, {
+        const r = await fetch(`${cfg.workerUrl}/api/fatigue/${workoutId}`, {
           headers: {
             'Authorization':          `Bearer ${notionToken}`,
-            'X-Sessions-Database-Id': SESSIONS_DB_ID,
+            'X-Sessions-Database-Id': cfg.sessionsDbId,
           },
         });
         if (!r.ok) return null;
@@ -131,18 +127,18 @@ export function useNotionWorkouts() {
         return null;
       }
     },
-    [notionToken],
+    [notionToken, cfg.workerUrl, cfg.sessionsDbId],
   );
 
   // ── Fetch full workout AST (blocks) for a specific workout ────────────────
   const fetchWorkoutAST = useCallback(
     async (workoutId: string): Promise<WorkoutAST | null> => {
-      if (!notionToken || !BLOCKS_DB_ID) return null;
+      if (!notionToken || !cfg.blocksDbId) return null;
       try {
-        const r = await fetch(`${WORKER_URL}/api/workout/${workoutId}`, {
+        const r = await fetch(`${cfg.workerUrl}/api/workout/${workoutId}`, {
           headers: {
-            'Authorization':       `Bearer ${notionToken}`,
-            'X-Blocks-Database-Id': BLOCKS_DB_ID,
+            'Authorization':        `Bearer ${notionToken}`,
+            'X-Blocks-Database-Id': cfg.blocksDbId,
           },
         });
         if (!r.ok) return null;
@@ -151,7 +147,7 @@ export function useNotionWorkouts() {
         return null;
       }
     },
-    [notionToken],
+    [notionToken, cfg.workerUrl, cfg.blocksDbId],
   );
 
   // ── Re-fetch the workout list ─────────────────────────────────────────────
@@ -181,7 +177,7 @@ export function useNotionWorkouts() {
     /** Trigger the Notion OAuth flow */
     connectNotion,
     /** Whether per-workout fatigue fetching is possible (sessions DB configured) */
-    canFetchFatigue: !!SESSIONS_DB_ID,
+    canFetchFatigue: !!cfg.sessionsDbId,
     /** Re-fetch the workout list */
     refresh,
   };

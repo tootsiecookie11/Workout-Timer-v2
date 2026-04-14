@@ -2,22 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { calculateFatigueScore } from '../engine/fatigueEngine';
 import { useSettingsStore } from '../store/settingsStore';
+import { useNotionConfig, type NotionConfigResolved } from './useNotionConfig';
 import type { ConfigStatus, WorkoutAST } from './useNotionWorkouts';
 import type { ProgramSummary, ProgramDay, TodaysProgramDay } from './useNotionPrograms';
-
-// ─── Env config ───────────────────────────────────────────────────────────────
-// Required in app/.env:
-//   VITE_WORKER_URL                   https://your-worker.workers.dev
-//   VITE_NOTION_PROGRAMS_DB_ID        Workout Programs database id
-//   VITE_NOTION_PROGRAM_DAYS_DB_ID    Program Days database id
-//   VITE_NOTION_BLOCKS_DB_ID          Workout Blocks database id  (for AST)
-//   VITE_NOTION_SESSIONS_DB_ID        Sessions database id        (for completion check)
-
-const WORKER_URL     = (import.meta.env.VITE_WORKER_URL                as string | undefined) ?? '';
-const PROGRAMS_DB_ID = (import.meta.env.VITE_NOTION_PROGRAMS_DB_ID     as string | undefined) ?? '';
-const DAYS_DB_ID     = (import.meta.env.VITE_NOTION_PROGRAM_DAYS_DB_ID as string | undefined) ?? '';
-const BLOCKS_DB_ID   = (import.meta.env.VITE_NOTION_BLOCKS_DB_ID       as string | undefined) ?? '';
-const SESSIONS_DB_ID = (import.meta.env.VITE_NOTION_SESSIONS_DB_ID     as string | undefined) ?? '';
 
 // ─── Local types ──────────────────────────────────────────────────────────────
 
@@ -26,6 +13,66 @@ interface SessionRecord {
   completion_ratio:     number;
   post_fatigue_score?:  number;
   pre_readiness_score?: number;
+}
+
+// ─── Pure helpers (no React — receive cfg as param instead of closing over env) ──
+
+async function apiFetchPrograms(token: string, cfg: NotionConfigResolved): Promise<ProgramSummary[]> {
+  const r = await fetch(`${cfg.workerUrl}/api/programs`, {
+    headers: {
+      'Authorization':          `Bearer ${token}`,
+      'X-Programs-Database-Id': cfg.programsDbId,
+    },
+  });
+  if (!r.ok) {
+    const body = (await r.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Programs fetch failed (${r.status})`);
+  }
+  return r.json() as Promise<ProgramSummary[]>;
+}
+
+async function apiFetchSchedule(token: string, programId: string, cfg: NotionConfigResolved): Promise<ProgramDay[]> {
+  if (!cfg.daysDbId) return [];
+  const r = await fetch(`${cfg.workerUrl}/api/program/${programId}/schedule`, {
+    headers: {
+      'Authorization':      `Bearer ${token}`,
+      'X-Days-Database-Id': cfg.daysDbId,
+    },
+  });
+  if (!r.ok) return [];
+  return r.json() as Promise<ProgramDay[]>;
+}
+
+async function apiFetchAST(token: string, workoutId: string, cfg: NotionConfigResolved): Promise<WorkoutAST | null> {
+  if (!cfg.blocksDbId) return null;
+  try {
+    const r = await fetch(`${cfg.workerUrl}/api/workout/${workoutId}`, {
+      headers: {
+        'Authorization':        `Bearer ${token}`,
+        'X-Blocks-Database-Id': cfg.blocksDbId,
+      },
+    });
+    if (!r.ok) return null;
+    return r.json() as Promise<WorkoutAST>;
+  } catch {
+    return null;
+  }
+}
+
+async function apiFetchRecentSessions(token: string, workoutId: string, cfg: NotionConfigResolved): Promise<SessionRecord[]> {
+  if (!cfg.sessionsDbId) return [];
+  try {
+    const r = await fetch(`${cfg.workerUrl}/api/workout/${workoutId}/sessions?limit=5`, {
+      headers: {
+        'Authorization':          `Bearer ${token}`,
+        'X-Sessions-Database-Id': cfg.sessionsDbId,
+      },
+    });
+    if (!r.ok) return [];
+    return r.json() as Promise<SessionRecord[]>;
+  } catch {
+    return [];
+  }
 }
 
 // ─── Pure helpers (no React — safe to call from async functions) ──────────────
@@ -53,71 +100,16 @@ function todayDateString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ─── API helpers (pure async, receive token + ids as params) ─────────────────
-
-async function apiFetchPrograms(token: string): Promise<ProgramSummary[]> {
-  const r = await fetch(`${WORKER_URL}/api/programs`, {
-    headers: {
-      'Authorization':         `Bearer ${token}`,
-      'X-Programs-Database-Id': PROGRAMS_DB_ID,
-    },
-  });
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Programs fetch failed (${r.status})`);
-  }
-  return r.json() as Promise<ProgramSummary[]>;
-}
-
-async function apiFetchSchedule(token: string, programId: string): Promise<ProgramDay[]> {
-  if (!DAYS_DB_ID) return [];
-  const r = await fetch(`${WORKER_URL}/api/program/${programId}/schedule`, {
-    headers: {
-      'Authorization':    `Bearer ${token}`,
-      'X-Days-Database-Id': DAYS_DB_ID,
-    },
-  });
-  if (!r.ok) return [];
-  return r.json() as Promise<ProgramDay[]>;
-}
-
-async function apiFetchAST(token: string, workoutId: string): Promise<WorkoutAST | null> {
-  if (!BLOCKS_DB_ID) return null;
-  try {
-    const r = await fetch(`${WORKER_URL}/api/workout/${workoutId}`, {
-      headers: {
-        'Authorization':        `Bearer ${token}`,
-        'X-Blocks-Database-Id': BLOCKS_DB_ID,
-      },
-    });
-    if (!r.ok) return null;
-    return r.json() as Promise<WorkoutAST>;
-  } catch {
-    return null;
-  }
-}
-
-async function apiFetchRecentSessions(token: string, workoutId: string): Promise<SessionRecord[]> {
-  if (!SESSIONS_DB_ID) return [];
-  try {
-    const r = await fetch(`${WORKER_URL}/api/workout/${workoutId}/sessions?limit=5`, {
-      headers: {
-        'Authorization':          `Bearer ${token}`,
-        'X-Sessions-Database-Id': SESSIONS_DB_ID,
-      },
-    });
-    if (!r.ok) return [];
-    return r.json() as Promise<SessionRecord[]>;
-  } catch {
-    return [];
-  }
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
  * High-level Program Engine hook — the single source of truth for the
  * "My Program" tab.
+ *
+ * Config resolution:
+ *   DB IDs come from settingsStore (user-entered in Settings → Notion Vault)
+ *   with VITE_NOTION_*_DB_ID env vars as fallbacks. useNotionConfig() handles
+ *   the merge so developers can rely on .env files without touching the UI.
  *
  * Loading sequence on mount:
  *   1. Resolve Supabase session → Notion provider_token
@@ -140,6 +132,8 @@ async function apiFetchRecentSessions(token: string, workoutId: string): Promise
  *   refresh         — re-run the full load sequence
  */
 export function useProgramEngine() {
+  const cfg = useNotionConfig();
+
   const [status,     setStatus]     = useState<ConfigStatus>('checking');
   const [token,      setToken]      = useState<string | null>(null);
 
@@ -157,9 +151,9 @@ export function useProgramEngine() {
   // Local program override (persisted via settingsStore)
   const activeProgramId = useSettingsStore((s) => s.activeProgramId);
 
-  // ── 1. Resolve auth + env on mount ──────────────────────────────────────
+  // ── 1. Resolve auth + config on mount (and whenever config changes) ───────
   useEffect(() => {
-    if (!WORKER_URL || !PROGRAMS_DB_ID) {
+    if (!cfg.workerUrl || !cfg.programsDbId) {
       setStatus('no_config');
       return;
     }
@@ -174,20 +168,20 @@ export function useProgramEngine() {
       const t = session?.provider_token ?? null;
       setToken(t);
       setStatus(
-        !WORKER_URL || !PROGRAMS_DB_ID ? 'no_config'
-        : t                            ? 'ready'
-        :                                'no_auth',
+        !cfg.workerUrl || !cfg.programsDbId ? 'no_config'
+        : t                                 ? 'ready'
+        :                                     'no_auth',
       );
     });
 
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [cfg.workerUrl, cfg.programsDbId]);
 
-  // ── 2. Fetch program + schedule once authenticated (or when local selection changes) ──
+  // ── 2. Fetch program + schedule once authenticated (or when selection / config changes) ──
   useEffect(() => {
     if (status !== 'ready' || !token) return;
     void runLoad(token, activeProgramId);
-  }, [status, token, activeProgramId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status, token, activeProgramId, cfg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 3. Eager AST + completion check once today's workout is known ─────────
   useEffect(() => {
@@ -196,7 +190,7 @@ export function useProgramEngine() {
 
     // AST load
     setAstLoading(true);
-    apiFetchAST(token, workoutId).then((ast) => {
+    apiFetchAST(token, workoutId, cfg).then((ast) => {
       setWorkoutAST(ast);
       setAstLoading(false);
     });
@@ -204,8 +198,8 @@ export function useProgramEngine() {
     // Completion check + fatigue score from session history
     setTodayCompleted(null);
     setFatigueScore(null);
-    apiFetchRecentSessions(token, workoutId).then((sessions) => {
-      if (sessions.length === 0 && !SESSIONS_DB_ID) {
+    apiFetchRecentSessions(token, workoutId, cfg).then((sessions) => {
+      if (sessions.length === 0 && !cfg.sessionsDbId) {
         // Sessions DB not configured — leave both null (unknown)
         return;
       }
@@ -214,9 +208,9 @@ export function useProgramEngine() {
       // Compute weighted fatigue score from the same history batch
       setFatigueScore(calculateFatigueScore(sessions));
     });
-  }, [today, token]);
+  }, [today, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Core load function ────────────────────────────────────────────────────
+  // ── Core load function — captures cfg from the hook's render closure ──────
   async function runLoad(tok: string, localActiveId: string | null): Promise<void> {
     setLoading(true);
     setError(null);
@@ -228,7 +222,7 @@ export function useProgramEngine() {
 
     try {
       // Fetch all programs and cache the full list for the browse screen
-      const programs = await apiFetchPrograms(tok);
+      const programs = await apiFetchPrograms(tok, cfg);
       setAllPrograms(programs);
 
       // Local selection takes precedence; fall back to Notion's is_active flag,
@@ -246,7 +240,7 @@ export function useProgramEngine() {
       if (!position) return; // program hasn't started yet or has ended
 
       // Fetch schedule and match today's entry
-      const days    = await apiFetchSchedule(tok, active.id);
+      const days    = await apiFetchSchedule(tok, active.id, cfg);
       const dayInfo = days.find((d) => d.week === position.week && d.day === position.day) ?? null;
 
       setToday({
@@ -272,7 +266,7 @@ export function useProgramEngine() {
   const refresh = useCallback(() => {
     if (!token || status !== 'ready') return;
     void runLoad(token, activeProgramId);
-  }, [token, status, activeProgramId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, status, activeProgramId, cfg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Trigger Notion OAuth via Supabase. */
   const connectNotion = useCallback(async () => {

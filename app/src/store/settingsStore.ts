@@ -7,6 +7,19 @@ import { audioEngine } from '../engine/audioEngine';
 export type TransitionDuration = 'short' | 'normal' | 'long';
 
 /**
+ * User-configurable Notion database IDs.
+ * Mirrors the env vars (VITE_NOTION_*_DB_ID) but stored in localStorage so
+ * the user can enter them in the Settings drawer without touching .env files.
+ * Empty string means "not set" — hooks fall back to the env var in that case.
+ */
+export interface NotionConfig {
+  workoutsDatabaseId: string;
+  blocksDatabaseId:   string;
+  programsDatabaseId: string;
+  sessionsDatabaseId: string;
+}
+
+/**
  * Per-duration dismiss timings consumed by timerStore's transition:start
  * handler to control how long the TransitionOverlay stays visible.
  */
@@ -36,14 +49,24 @@ export interface SettingsState {
    * Null means fall back to Notion's active status.
    */
   activeProgramId:     string | null;
+  /**
+   * User-supplied Notion database IDs.
+   * Each field overrides the corresponding VITE_NOTION_*_DB_ID env var when
+   * non-empty, so the app works without any .env configuration.
+   */
+  notionConfig:        NotionConfig;
 }
 
 export interface SettingsActions {
-  setEnableBeeps:         (v: boolean)            => void;
-  setEnableVoiceCues:     (v: boolean)            => void;
-  setEnableHaptics:       (v: boolean)            => void;
-  setTransitionDuration:  (v: TransitionDuration) => void;
-  setActiveProgramId:     (id: string | null)     => void;
+  setEnableBeeps:           (v: boolean)            => void;
+  setEnableVoiceCues:       (v: boolean)            => void;
+  setEnableHaptics:         (v: boolean)            => void;
+  setTransitionDuration:    (v: TransitionDuration) => void;
+  setActiveProgramId:       (id: string | null)     => void;
+  setWorkoutsDatabaseId:    (id: string)             => void;
+  setBlocksDatabaseId:      (id: string)             => void;
+  setProgramsDatabaseId:    (id: string)             => void;
+  setSessionsDatabaseId:    (id: string)             => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -62,6 +85,12 @@ export const useSettingsStore = create<SettingsStore>()(
         enableHaptics:      true,
         transitionDuration: 'normal' as TransitionDuration,
         activeProgramId:    null,
+        notionConfig: {
+          workoutsDatabaseId: '',
+          blocksDatabaseId:   '',
+          programsDatabaseId: '',
+          sessionsDatabaseId: '',
+        },
 
         // ── Actions ─────────────────────────────────────────────────────────
         setEnableBeeps:        (v)  => set({ enableBeeps: v }),
@@ -69,6 +98,15 @@ export const useSettingsStore = create<SettingsStore>()(
         setEnableHaptics:      (v)  => set({ enableHaptics: v }),
         setTransitionDuration: (v)  => set({ transitionDuration: v }),
         setActiveProgramId:    (id) => set({ activeProgramId: id }),
+
+        setWorkoutsDatabaseId: (id) =>
+          set((s) => ({ notionConfig: { ...s.notionConfig, workoutsDatabaseId: id } })),
+        setBlocksDatabaseId: (id) =>
+          set((s) => ({ notionConfig: { ...s.notionConfig, blocksDatabaseId: id } })),
+        setProgramsDatabaseId: (id) =>
+          set((s) => ({ notionConfig: { ...s.notionConfig, programsDatabaseId: id } })),
+        setSessionsDatabaseId: (id) =>
+          set((s) => ({ notionConfig: { ...s.notionConfig, sessionsDatabaseId: id } })),
       }),
       {
         name:    STORAGE_KEY,
@@ -79,6 +117,7 @@ export const useSettingsStore = create<SettingsStore>()(
           enableHaptics:      s.enableHaptics,
           transitionDuration: s.transitionDuration,
           activeProgramId:    s.activeProgramId,
+          notionConfig:       s.notionConfig,
         }),
       },
     ),
