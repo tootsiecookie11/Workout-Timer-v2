@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   useSettingsStore,
   type TransitionDuration,
 } from '../store/settingsStore';
+import { useTimerStore } from '../store/timerStore';
+import { downloadVault, type ExportFormat } from '../lib/exportVault';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -266,6 +268,186 @@ const ICONS = {
   haptics:  'M13.5 1.5C13.5.67 12.83 0 12 0s-1.5.67-1.5 1.5v4.25L8.5 3.25c-.59-.59-1.54-.59-2.12 0-.59.59-.59 1.54 0 2.12l5.24 5.24c.29.29.67.44 1.06.44h4.5c.83 0 1.5-.67 1.5-1.5v-3c0-.83-.67-1.5-1.5-1.5h-1.5V3.75c0-.83-.67-1.5-1.5-1.5H13.5V1.5zm-7 15v4c0 .83.67 1.5 1.5 1.5h6c.83 0 1.5-.67 1.5-1.5v-3c0-.83-.67-1.5-1.5-1.5h-1.5v-1.75c0-.83-.67-1.5-1.5-1.5-.83 0-1.5.67-1.5 1.5V15h-.5c-.83 0-1.5.67-1.5 1.5z',
 };
 
+// ─── Vault / Export section ───────────────────────────────────────────────────
+
+interface VaultButtonProps {
+  format:      ExportFormat;
+  label:       string;
+  description: string;
+  iconPath:    string;
+  status:      ExportFormat | 'error' | null;
+  onExport:    (f: ExportFormat) => void;
+}
+
+function VaultButton({ format, label, description, iconPath, status, onExport }: VaultButtonProps) {
+  const isSuccess = status === format;
+  const isError   = status === 'error';
+
+  return (
+    <div
+      style={{
+        display:      'flex',
+        alignItems:   'center',
+        gap:          '12px',
+        padding:      '12px 14px',
+        borderRadius: '12px',
+        background:   isSuccess
+          ? 'rgba(169,229,187,0.07)'
+          : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${
+          isSuccess ? 'rgba(169,229,187,0.2)'
+          : isError ? 'rgba(255,132,129,0.15)'
+          : 'rgba(255,255,255,0.06)'}`,
+        transition: 'background 200ms ease, border-color 200ms ease',
+      }}
+    >
+      {/* Format icon */}
+      <span
+        style={{
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          width:          '34px',
+          height:         '34px',
+          borderRadius:   '8px',
+          flexShrink:     0,
+          background:     isSuccess ? 'rgba(169,229,187,0.14)' : 'rgba(255,255,255,0.05)',
+          color:          isSuccess ? 'var(--color-brand-primary)' : 'rgba(237,228,250,0.4)',
+          transition:     'background 200ms ease, color 200ms ease',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          aria-hidden>
+          <path d={iconPath} />
+        </svg>
+      </span>
+
+      {/* Label + description */}
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{
+          display:    'block',
+          fontSize:   '13px',
+          fontWeight: 600,
+          color:      isSuccess ? 'var(--color-brand-primary)' : 'rgba(237,228,250,0.8)',
+          transition: 'color 200ms ease',
+        }}>
+          {label}
+        </span>
+        <span style={{
+          display:    'block',
+          fontSize:   '11px',
+          marginTop:  '2px',
+          color:      'rgba(237,228,250,0.32)',
+          lineHeight: 1.4,
+        }}>
+          {description}
+        </span>
+      </span>
+
+      {/* Export button */}
+      <button
+        onClick={() => onExport(format)}
+        style={{
+          flexShrink:    0,
+          padding:       '7px 13px',
+          borderRadius:  '8px',
+          fontSize:      '11px',
+          fontWeight:    700,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          cursor:        'pointer',
+          border:        'none',
+          transition:    'background 180ms ease, color 180ms ease, box-shadow 180ms ease',
+          background:    isSuccess
+            ? 'rgba(169,229,187,0.18)'
+            : 'rgba(255,255,255,0.07)',
+          color:   isSuccess ? 'var(--color-brand-primary)' : 'rgba(237,228,250,0.55)',
+          boxShadow: isSuccess ? '0 0 10px rgba(169,229,187,0.1)' : 'none',
+          outline: 'none',
+        }}
+      >
+        {isSuccess ? '✓ Saved' : 'Export'}
+      </button>
+    </div>
+  );
+}
+
+function VaultSection() {
+  const sessionHistory  = useTimerStore((s) => s.sessionHistory);
+  const customIntervals = useTimerStore((s) => s.customIntervals);
+  const fatigueScore    = useTimerStore((s) => s.fatigueScore);
+
+  const [exportStatus, setExportStatus] = useState<ExportFormat | 'error' | null>(null);
+
+  function handleExport(format: ExportFormat) {
+    try {
+      downloadVault(format, {
+        sessionHistory,
+        customIntervals,
+        fatigueScore,
+        exportedAt: new Date().toISOString(),
+      });
+      setExportStatus(format);
+      setTimeout(() => setExportStatus(null), 2200);
+    } catch {
+      setExportStatus('error');
+      setTimeout(() => setExportStatus(null), 2200);
+    }
+  }
+
+  const sessionCount = sessionHistory.length;
+  const templateCount = customIntervals.length;
+
+  return (
+    <div>
+      <p style={{
+        margin:     '0 0 10px',
+        fontSize:   '12px',
+        lineHeight: 1.55,
+        color:      'rgba(237,228,250,0.38)',
+      }}>
+        {sessionCount > 0 || templateCount > 0
+          ? `${sessionCount} session${sessionCount !== 1 ? 's' : ''}${templateCount > 0 ? ` · ${templateCount} template${templateCount !== 1 ? 's' : ''}` : ''} ready to export.`
+          : 'No sessions recorded yet — start a workout to populate your vault.'}
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+        <VaultButton
+          format="json"
+          label="JSON"
+          description="Structured backup — developer &amp; import-ready"
+          iconPath="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M10 13l-2 2 2 2 M14 13l2 2-2 2"
+          status={exportStatus}
+          onExport={handleExport}
+        />
+        <VaultButton
+          format="csv"
+          label="CSV"
+          description="Row-per-session table — Excel &amp; Google Sheets"
+          iconPath="M3 3h18v4H3z M3 10h18v4H3z M3 17h18v4H3z"
+          status={exportStatus}
+          onExport={handleExport}
+        />
+        <VaultButton
+          format="markdown"
+          label="Markdown"
+          description="Training log with YAML front matter — Obsidian &amp; Notion"
+          iconPath="M4 7h16 M4 12h10 M4 17h12 M19 12l-3 3 3 3"
+          status={exportStatus}
+          onExport={handleExport}
+        />
+      </div>
+
+      {exportStatus === 'error' && (
+        <p style={{ marginTop: '8px', fontSize: '11px', color: 'rgba(255,132,129,0.75)' }}>
+          Export failed — check browser download permissions.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Drawer ──────────────────────────────────────────────────────────────
 
 export default function SettingsDrawer({ open, onClose }: Props) {
@@ -465,6 +647,12 @@ export default function SettingsDrawer({ open, onClose }: Props) {
             How long the transition overlay stays visible before the next step begins.
           </p>
           <DurationPicker value={transitionDuration} onChange={setTransitionDuration} />
+
+          <Divider />
+
+          {/* ── Vault section ─────────────────────────────────────────────── */}
+          <SectionLabel>Vault</SectionLabel>
+          <VaultSection />
 
         </div>
 

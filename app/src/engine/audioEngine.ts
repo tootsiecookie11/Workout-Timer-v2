@@ -130,12 +130,19 @@ class AudioEngine {
     utt.pitch   = 1.0;
     utt.volume  = 1;
 
-    // Try to find a premium English voice if available
+    // Voice selection: always prefer local (on-device) voices so cues work
+    // in a basement gym with no signal. Cloud voices (e.g. Google WaveNet)
+    // have localService === false and silently drop the utterance offline.
     const voices = window.speechSynthesis.getVoices();
-    const premium = voices.find(v => v.name.includes('Google') && v.lang.includes('en-US'))
-                 || voices.find(v => v.lang.includes('en-GB'))
-                 || voices.find(v => v.lang.includes('en'));
-    if (premium) utt.voice = premium;
+    const localEn =
+      voices.find(v => v.localService && v.lang === 'en-US') ||
+      voices.find(v => v.localService && v.lang.startsWith('en-'));
+    const anyEn =
+      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => v.lang.startsWith('en-'));
+    // localEn first; fall back to any English if no local voice is registered
+    const chosen = localEn ?? anyEn;
+    if (chosen) utt.voice = chosen;
 
     window.speechSynthesis.speak(utt);
   }

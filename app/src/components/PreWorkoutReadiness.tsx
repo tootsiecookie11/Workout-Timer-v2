@@ -229,11 +229,13 @@ export default function PreWorkoutReadiness() {
   const confirmReadiness      = useTimerStore((s) => s.confirmReadiness);
   const dismissReadinessModal = useTimerStore((s) => s.dismissReadinessModal);
 
-  const [readiness, setReadiness] = useState(7);
+  const [readiness,    setReadiness]    = useState(7);
+  const [smartAdjust,  setSmartAdjust]  = useState(false);
 
   if (!visible) return null;
 
-  const hasFatigue = fatigueScore > 0;
+  const hasFatigue     = fatigueScore > 0;
+  const showSmartAdj   = hasFatigue && fatigueScore >= 6;
 
   return (
     <>
@@ -298,6 +300,54 @@ export default function PreWorkoutReadiness() {
           {/* Fatigue badge — only when history exists */}
           {hasFatigue && <FatigueBadge score={fatigueScore} />}
 
+          {/* Smart Adjustment toggle — only when fatigue is elevated */}
+          {showSmartAdj && (
+            <div
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+              style={{
+                background: 'rgba(254,178,70,0.06)',
+                border:     `1px solid ${smartAdjust ? 'rgba(254,178,70,0.4)' : 'rgba(254,178,70,0.15)'}`,
+                transition: 'border-color 200ms ease',
+              }}
+            >
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <span className="text-xs font-semibold" style={{ color: 'rgba(254,178,70,0.9)' }}>
+                  Smart Adjustment
+                </span>
+                <span className="text-[11px] leading-snug" style={{ color: 'rgba(254,178,70,0.55)' }}>
+                  {smartAdjust
+                    ? 'Session durations shortened by 15%'
+                    : 'You seem fatigued — shorten this session by 15%?'}
+                </span>
+              </div>
+
+              {/* iOS-style toggle */}
+              <button
+                onClick={() => setSmartAdjust((v) => !v)}
+                role="switch"
+                aria-checked={smartAdjust}
+                aria-label="Enable Smart Adjustment"
+                className="relative flex-shrink-0 rounded-full transition-colors duration-200"
+                style={{
+                  width:      44,
+                  height:     26,
+                  background: smartAdjust ? 'var(--color-brand-primary)' : 'rgba(255,255,255,0.1)',
+                  border:     '1px solid rgba(255,255,255,0.12)',
+                }}
+              >
+                <span
+                  className="absolute top-[3px] rounded-full transition-all duration-200"
+                  style={{
+                    width:      18,
+                    height:     18,
+                    left:       smartAdjust ? 22 : 3,
+                    background: smartAdjust ? '#120b18' : 'rgba(255,255,255,0.55)',
+                  }}
+                />
+              </button>
+            </div>
+          )}
+
           {/* Readiness dial */}
           <ReadinessDial value={readiness} onChange={setReadiness} />
 
@@ -307,7 +357,7 @@ export default function PreWorkoutReadiness() {
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1">
             <button
-              onClick={() => confirmReadiness(readiness)}
+              onClick={() => confirmReadiness(readiness, smartAdjust)}
               className="w-full py-4 rounded-2xl font-bold text-sm uppercase tracking-wider transition-all active:scale-95"
               style={{
                 background: 'var(--color-brand-primary)',

@@ -30,6 +30,12 @@ export interface SettingsState {
   enableHaptics:       boolean;
   /** Controls TransitionOverlay dismiss delay. */
   transitionDuration:  TransitionDuration;
+  /**
+   * Locally-selected active program ID.
+   * Takes precedence over Notion's `is_active` flag.
+   * Null means fall back to Notion's active status.
+   */
+  activeProgramId:     string | null;
 }
 
 export interface SettingsActions {
@@ -37,6 +43,7 @@ export interface SettingsActions {
   setEnableVoiceCues:     (v: boolean)            => void;
   setEnableHaptics:       (v: boolean)            => void;
   setTransitionDuration:  (v: TransitionDuration) => void;
+  setActiveProgramId:     (id: string | null)     => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -54,12 +61,14 @@ export const useSettingsStore = create<SettingsStore>()(
         enableVoiceCues:    true,
         enableHaptics:      true,
         transitionDuration: 'normal' as TransitionDuration,
+        activeProgramId:    null,
 
         // ── Actions ─────────────────────────────────────────────────────────
-        setEnableBeeps:        (v) => set({ enableBeeps: v }),
-        setEnableVoiceCues:    (v) => set({ enableVoiceCues: v }),
-        setEnableHaptics:      (v) => set({ enableHaptics: v }),
-        setTransitionDuration: (v) => set({ transitionDuration: v }),
+        setEnableBeeps:        (v)  => set({ enableBeeps: v }),
+        setEnableVoiceCues:    (v)  => set({ enableVoiceCues: v }),
+        setEnableHaptics:      (v)  => set({ enableHaptics: v }),
+        setTransitionDuration: (v)  => set({ transitionDuration: v }),
+        setActiveProgramId:    (id) => set({ activeProgramId: id }),
       }),
       {
         name:    STORAGE_KEY,
@@ -69,6 +78,7 @@ export const useSettingsStore = create<SettingsStore>()(
           enableVoiceCues:    s.enableVoiceCues,
           enableHaptics:      s.enableHaptics,
           transitionDuration: s.transitionDuration,
+          activeProgramId:    s.activeProgramId,
         }),
       },
     ),

@@ -1,6 +1,7 @@
 import { useTimerStore } from '../store/timerStore';
 import TimerDisplay from './TimerDisplay';
 import type { LapRecord } from '../engine/types';
+import { classifyFatigue, recommendedRestHours } from '../engine/fatigueEngine';
 
 function formatSplit(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -9,6 +10,80 @@ function formatSplit(ms: number): string {
   const sec = s % 60;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
+
+// ─── Readiness Score Card ─────────────────────────────────────────────────────
+
+function ReadinessScoreCard({ score }: { score: number }) {
+  const category  = classifyFatigue(score);
+  const isHigh    = score >= 7;
+  const isMid     = score >= 5;
+  const accentRgb = isHigh ? '255,132,129' : isMid ? '254,178,70' : '169,229,187';
+  const accent    = isHigh
+    ? 'var(--color-brand-tertiary)'
+    : isMid
+    ? 'var(--color-brand-secondary)'
+    : 'var(--color-brand-primary)';
+  const tagline   = isHigh
+    ? 'Take it easy today'
+    : isMid
+    ? 'Moderate effort recommended'
+    : "You're ready to train";
+
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-3 rounded-2xl"
+      style={{
+        background: `rgba(${accentRgb},0.06)`,
+        border:     `1px solid rgba(${accentRgb},0.14)`,
+      }}
+    >
+      {/* Left: labels */}
+      <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: `rgba(${accentRgb},0.5)` }}
+        >
+          Session Readiness
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span
+            className="font-display font-bold capitalize"
+            style={{ fontSize: '1.25rem', color: accent }}
+          >
+            {category}
+          </span>
+          <span className="text-[11px]" style={{ color: `rgba(${accentRgb},0.5)` }}>
+            {score.toFixed(1)} fatigue
+          </span>
+        </div>
+        <span className="text-[11px]" style={{ color: 'var(--color-brand-text-muted)' }}>
+          {tagline}
+        </span>
+      </div>
+
+      {/* Right: rest recommendation pill */}
+      <div
+        className="flex flex-col items-center gap-0.5 flex-shrink-0 px-3 py-2 rounded-xl"
+        style={{ background: `rgba(${accentRgb},0.08)` }}
+      >
+        <span
+          className="font-display font-bold tabular-nums"
+          style={{ fontSize: '1.05rem', color: accent }}
+        >
+          {recommendedRestHours(score)}h
+        </span>
+        <span
+          className="text-[9px] font-bold uppercase tracking-wider text-center"
+          style={{ color: `rgba(${accentRgb},0.45)`, lineHeight: 1.2 }}
+        >
+          rec&rsquo;d<br />rest
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Lap row ──────────────────────────────────────────────────────────────────
 
 function LapRow({ lap, isLatest }: { lap: LapRecord; isLatest: boolean }) {
   return (
@@ -42,17 +117,18 @@ function LapRow({ lap, isLatest }: { lap: LapRecord; isLatest: boolean }) {
 }
 
 export default function StopwatchScreen() {
-  const engineState = useTimerStore((s) => s.engineState);
-  const elapsed_ms = useTimerStore((s) => s.elapsed_ms);
-  const laps = useTimerStore((s) => s.laps);
-  const startStopwatch = useTimerStore((s) => s.startStopwatch);
-  const pauseStopwatch = useTimerStore((s) => s.pauseStopwatch);
+  const engineState    = useTimerStore((s) => s.engineState);
+  const elapsed_ms     = useTimerStore((s) => s.elapsed_ms);
+  const laps           = useTimerStore((s) => s.laps);
+  const fatigueScore   = useTimerStore((s) => s.fatigueScore);
+  const startStopwatch  = useTimerStore((s) => s.startStopwatch);
+  const pauseStopwatch  = useTimerStore((s) => s.pauseStopwatch);
   const resumeStopwatch = useTimerStore((s) => s.resumeStopwatch);
-  const resetStopwatch = useTimerStore((s) => s.resetStopwatch);
-  const lapStopwatch = useTimerStore((s) => s.lapStopwatch);
+  const resetStopwatch  = useTimerStore((s) => s.resetStopwatch);
+  const lapStopwatch    = useTimerStore((s) => s.lapStopwatch);
 
-  const isRunning = engineState === 'ACTIVE';
-  const isPaused = engineState === 'PAUSED';
+  const isRunning  = engineState === 'ACTIVE';
+  const isPaused   = engineState === 'PAUSED';
   const hasStarted = isRunning || isPaused;
 
   return (
@@ -162,6 +238,11 @@ export default function StopwatchScreen() {
             </svg>
           </button>
         </div>
+
+        {/* Readiness card — shown on idle home state when session history exists */}
+        {!hasStarted && fatigueScore > 0 && (
+          <ReadinessScoreCard score={fatigueScore} />
+        )}
 
         {/* Lap list */}
         {laps.length > 0 && (

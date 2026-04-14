@@ -3,6 +3,7 @@ import { useTimerStore } from '../store/timerStore';
 import { useProgramEngine } from '../hooks/useProgramEngine';
 import { buildGraph } from '../engine/graphBuilder';
 import { classifyFatigue } from '../engine/fatigueEngine';
+import ProgramsListScreen from './ProgramsListScreen';
 import type { WorkoutBlock } from '../engine/types';
 
 // ─── Design-system accent helpers ────────────────────────────────────────────
@@ -509,16 +510,16 @@ const PROGRAM_STEPS = [
   {
     n: '02',
     title: 'Create or open a program page',
-    body:  'Add a page with a name, duration in weeks, and a list of program days.',
+    body:  'Add a name, goal, duration in weeks, start date, and a list of program days.',
   },
   {
     n: '03',
-    title: 'Set Status → Active',
-    body:  'Change the Status property to "Active". The dashboard will pick it up on the next sync.',
+    title: 'Activate from the app',
+    body:  'Tap "Browse Programs" below to select and activate a program directly in the app.',
   },
 ];
 
-function NoProgramGuide({ onRefresh }: { onRefresh: () => void }) {
+function NoProgramGuide({ onRefresh, onBrowse }: { onRefresh: () => void; onBrowse: () => void }) {
   return (
     <div className="flex flex-col gap-6 py-2">
       {/* Icon */}
@@ -543,7 +544,7 @@ function NoProgramGuide({ onRefresh }: { onRefresh: () => void }) {
         </h2>
         <p className="text-sm leading-relaxed max-w-xs mx-auto"
           style={{ color: 'var(--color-brand-text-muted)' }}>
-          Create a training program in Notion and set it to Active — it'll appear here automatically.
+          Create a training program in Notion, then activate it here or mark it Active in Notion.
         </p>
       </div>
 
@@ -569,14 +570,25 @@ function NoProgramGuide({ onRefresh }: { onRefresh: () => void }) {
         ))}
       </div>
 
-      {/* Refresh CTA */}
+      {/* Browse Programs CTA (primary) */}
       <button
-        onClick={onRefresh}
+        onClick={onBrowse}
         className="w-full py-3.5 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98]"
         style={{
-          background: 'rgba(169,229,187,0.08)',
-          border:     '1px solid rgba(169,229,187,0.22)',
-          color:      'rgba(169,229,187,0.8)',
+          background: 'var(--color-brand-primary)',
+          color:      '#120b18',
+        }}>
+        Browse Programs
+      </button>
+
+      {/* Refresh (secondary) */}
+      <button
+        onClick={onRefresh}
+        className="w-full py-3 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98]"
+        style={{
+          background: 'rgba(169,229,187,0.06)',
+          border:     '1px solid rgba(169,229,187,0.18)',
+          color:      'rgba(169,229,187,0.6)',
         }}>
         Check Again
       </button>
@@ -601,7 +613,7 @@ function Skeleton() {
 
 export default function ProgramDashboard() {
   const {
-    status, program, today,
+    status, allPrograms, program, today,
     workoutAST, astLoading,
     fatigueScore, todayCompleted,
     loading, error,
@@ -612,9 +624,10 @@ export default function ProgramDashboard() {
   const startSession      = useTimerStore((s) => s.startSession);
   const storeFatigueScore = useTimerStore((s) => s.setFatigueScore);
 
-  const [readiness,   setReadiness]   = useState(7);
-  const [launching,   setLaunching]   = useState(false);
-  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [readiness,        setReadiness]        = useState(7);
+  const [launching,        setLaunching]        = useState(false);
+  const [launchError,      setLaunchError]      = useState<string | null>(null);
+  const [showProgramsList, setShowProgramsList] = useState(false);
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const effectiveFatigue = fatigueScore ?? 0;
@@ -647,6 +660,18 @@ export default function ProgramDashboard() {
       setLaunchError(e instanceof Error ? e.message : 'Failed to build workout graph');
       setLaunching(false);
     }
+  }
+
+  // ── Programs browse overlay ───────────────────────────────────────────────
+
+  if (showProgramsList) {
+    return (
+      <ProgramsListScreen
+        programs={allPrograms}
+        loading={loading}
+        onBack={() => setShowProgramsList(false)}
+      />
+    );
   }
 
   // ── Gate states ───────────────────────────────────────────────────────────
@@ -721,7 +746,7 @@ export default function ProgramDashboard() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6 pt-20 pb-12">
         <div className="w-full max-w-sm">
-          <NoProgramGuide onRefresh={refresh} />
+          <NoProgramGuide onRefresh={refresh} onBrowse={() => setShowProgramsList(true)} />
         </div>
       </main>
     );
@@ -765,22 +790,43 @@ export default function ProgramDashboard() {
 
         {/* Program name + status badges */}
         <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display text-2xl font-bold tracking-tight"
+          <h1 className="font-display text-2xl font-bold tracking-tight truncate"
             style={{ color: 'var(--color-brand-text)' }}>
             {program.name}
           </h1>
-          {isRestDay && (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
-              style={{ background: rgba('amber', 0.1), border: `1px solid ${rgba('amber', 0.25)}`, color: rgba('amber', 0.8) }}>
-              Rest Day
-            </span>
-          )}
-          {todayCompleted && !isRestDay && (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
-              style={{ background: rgba('green', 0.1), border: `1px solid ${rgba('green', 0.25)}`, color: rgba('green', 0.8) }}>
-              ✓ Done
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {isRestDay && (
+              <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
+                style={{ background: rgba('amber', 0.1), border: `1px solid ${rgba('amber', 0.25)}`, color: rgba('amber', 0.8) }}>
+                Rest Day
+              </span>
+            )}
+            {todayCompleted && !isRestDay && (
+              <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
+                style={{ background: rgba('green', 0.1), border: `1px solid ${rgba('green', 0.25)}`, color: rgba('green', 0.8) }}>
+                ✓ Done
+              </span>
+            )}
+            {/* Change program */}
+            <button
+              onClick={() => setShowProgramsList(true)}
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border:     '1px solid rgba(255,255,255,0.1)',
+              }}
+              title="Browse programs"
+              aria-label="Browse programs"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(237,228,250,0.5)" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6"  x2="21" y2="6"  />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Week / Day progress */}

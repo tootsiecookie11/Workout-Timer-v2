@@ -1,4 +1,9 @@
-import type { WorkoutBlock } from './types';
+/**
+ * Shared DSL types used by the server-side dslParser.
+ * Mirrors the subset of app/src/engine/dslTypes.ts that the parser needs.
+ * Graph-specific types (WorkoutGraph, GraphEdge, etc.) are intentionally
+ * omitted — they live only in the client engine.
+ */
 
 // ─── Source Spans ─────────────────────────────────────────────────────────────
 
@@ -46,67 +51,15 @@ export type ASTNode =
  * | readiness     | 0–10 user self-report at session start (optional) |
  */
 export interface EvalContext {
-  reps:           number;
-  time:           number;
-  round:          number;
-  set:            number;
-  user:           string | null;
-  elapsed_ms?:    number;
-  remaining_ms?:  number;
-  lap?:           number;
-  /** 0–10: higher = more fatigued. Fed from Notion session history via fatigueEngine. */
-  fatigue_score?: number;
-  /** 0–10: user-reported readiness collected before session start. */
-  readiness?:     number;
-  /** 0.0–1.0 volume modifier applied by Smart Adjustment (1.0 = full, 0.85 = 15% less). */
+  reps:            number;
+  time:            number;
+  round:           number;
+  set:             number;
+  user:            string | null;
+  elapsed_ms?:     number;
+  remaining_ms?:   number;
+  lap?:            number;
+  fatigue_score?:  number;
+  readiness?:      number;
   volume_modifier?: number;
-}
-
-// ─── Graph Types ──────────────────────────────────────────────────────────────
-
-/** Sentinel node id meaning "workout is finished". */
-export const GRAPH_END = '__END__';
-
-export interface GraphEdge {
-  /** Target node id, or GRAPH_END. */
-  to: string;
-  /** DSL condition string. Undefined = unconditional (always taken). */
-  condition?: string;
-  /** If set, engine pauses and shows this prompt before evaluating the edge. */
-  userPrompt?: string;
-  /** Human-readable edge label (e.g. "If strong", "Skip"). */
-  label?: string;
-}
-
-export interface GraphNode {
-  id: string;
-  block: WorkoutBlock;
-  /** Ordered list of outgoing edges. First matching edge wins. */
-  edges: GraphEdge[];
-}
-
-export interface WorkoutGraph {
-  nodes: Map<string, GraphNode>;
-  entryId: string;
-}
-
-// ─── Graph Engine Events ──────────────────────────────────────────────────────
-
-/** Emitted when a conditional edge is evaluated and taken. */
-export interface GraphBranchPayload {
-  from_node_id: string;
-  to_node_id:   string;
-  edge:          GraphEdge;
-  context:       EvalContext;
-}
-
-/**
- * Emitted when a node has user-prompt edges and the engine needs input
- * before it can advance. UI should present the options and call
- * graphEngine.resolveChoice(answer).
- */
-export interface GraphChoiceRequiredPayload {
-  node_id: string;
-  prompt:  string;
-  options: string[];
 }

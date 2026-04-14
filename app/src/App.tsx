@@ -9,6 +9,7 @@ import TransitionOverlay from './components/TransitionOverlay';
 import GraphChoiceOverlay from './components/GraphChoiceOverlay';
 import PreWorkoutReadiness from './components/PreWorkoutReadiness';
 import ProgramDashboard from './components/ProgramDashboard';
+import OfflineBanner from './components/OfflineBanner';
 
 export default function App() {
   const mode = useTimerStore((s) => s.mode);
@@ -51,6 +52,9 @@ export default function App() {
       <TransitionOverlay />
       <PreWorkoutReadiness />
       <GraphChoiceOverlay />
+
+      {/* Gym-proof reliability indicator — offline / syncing / synced */}
+      <OfflineBanner />
     </>
   );
 }

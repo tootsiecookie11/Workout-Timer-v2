@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { calculateFatigueScore } from '../engine/fatigueEngine';
+import { useSettingsStore } from '../store/settingsStore';
 import type { ConfigStatus, WorkoutAST } from './useNotionWorkouts';
 import type { ProgramSummary, ProgramDay, TodaysProgramDay } from './useNotionPrograms';
 
@@ -142,6 +143,7 @@ export function useProgramEngine() {
   const [status,     setStatus]     = useState<ConfigStatus>('checking');
   const [token,      setToken]      = useState<string | null>(null);
 
+  const [allPrograms,    setAllPrograms]    = useState<ProgramSummary[]>([]);
   const [program,        setProgram]        = useState<ProgramSummary | null>(null);
   const [today,          setToday]          = useState<TodaysProgramDay | null>(null);
   const [workoutAST,     setWorkoutAST]     = useState<WorkoutAST | null>(null);
@@ -151,6 +153,9 @@ export function useProgramEngine() {
   const [loading,    setLoading]    = useState(false);
   const [astLoading, setAstLoading] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
+
+  // Local program override (persisted via settingsStore)
+  const activeProgramId = useSettingsStore((s) => s.activeProgramId);
 
   // ── 1. Resolve auth + env on mount ──────────────────────────────────────
   useEffect(() => {
@@ -178,11 +183,11 @@ export function useProgramEngine() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // ── 2. Fetch program + schedule once authenticated ────────────────────────
+  // ── 2. Fetch program + schedule once authenticated (or when local selection changes) ──
   useEffect(() => {
     if (status !== 'ready' || !token) return;
-    void runLoad(token);
-  }, [status, token]);
+    void runLoad(token, activeProgramId);
+  }, [status, token, activeProgramId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 3. Eager AST + completion check once today's workout is known ─────────
   useEffect(() => {
@@ -212,7 +217,7 @@ export function useProgramEngine() {
   }, [today, token]);
 
   // ── Core load function ────────────────────────────────────────────────────
-  async function runLoad(tok: string): Promise<void> {
+  async function runLoad(tok: string, localActiveId: string | null): Promise<void> {
     setLoading(true);
     setError(null);
     setProgram(null);
@@ -222,9 +227,16 @@ export function useProgramEngine() {
     setFatigueScore(null);
 
     try {
-      // Fetch + select active program
+      // Fetch all programs and cache the full list for the browse screen
       const programs = await apiFetchPrograms(tok);
-      const active   = programs.find((p) => p.is_active) ?? null;
+      setAllPrograms(programs);
+
+      // Local selection takes precedence; fall back to Notion's is_active flag,
+      // then fall back further if the locally-saved ID was removed from Notion.
+      const active =
+        (localActiveId ? programs.find((p) => p.id === localActiveId) : null)
+        ?? programs.find((p) => p.is_active)
+        ?? null;
       setProgram(active);
 
       if (!active) return; // no active program enrolled
@@ -259,8 +271,8 @@ export function useProgramEngine() {
   /** Re-run the full load sequence (e.g. after completing a session). */
   const refresh = useCallback(() => {
     if (!token || status !== 'ready') return;
-    void runLoad(token);
-  }, [token, status]); // eslint-disable-line react-hooks/exhaustive-deps
+    void runLoad(token, activeProgramId);
+  }, [token, status, activeProgramId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Trigger Notion OAuth via Supabase. */
   const connectNotion = useCallback(async () => {
@@ -273,6 +285,8 @@ export function useProgramEngine() {
   return {
     /** Auth + config resolution state. */
     status,
+    /** Full list of all programs fetched from Notion (for the browse screen). */
+    allPrograms,
     /** The user's active training program, or null if none found / enrolled. */
     program,
     /**

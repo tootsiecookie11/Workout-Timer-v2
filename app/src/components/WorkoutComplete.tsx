@@ -109,6 +109,7 @@ function FatigueDial({
 export default function WorkoutComplete() {
   const sessionResult    = useTimerStore((s) => s.sessionResult);
   const endSession       = useTimerStore((s) => s.endSession);
+  const recordSession    = useTimerStore((s) => s.recordSession);
   const mode             = useTimerStore((s) => s.mode);
   const evalContext      = useTimerStore((s) => s.evalContext);
   const activeWorkoutId  = useTimerStore((s) => s.activeWorkoutId);
@@ -133,6 +134,18 @@ export default function WorkoutComplete() {
   const isPresetMode = mode === 'preset';
 
   async function handleDone() {
+    // Always write RPE back to the local fatigue engine for next-session scoring.
+    if (sessionResult) {
+      recordSession({
+        date:               new Date(sessionResult.completed_at).toISOString(),
+        completion_ratio:   Math.round(completionRatio * 100) / 100,
+        post_fatigue_score: postFatigue,
+        pre_readiness_score: preReadiness ?? undefined,
+        duration_ms:        durationMs,
+      });
+    }
+
+    // Notion sync — preset sessions only.
     if (isPresetMode && sessionResult && activeWorkoutId) {
       setSyncing(true);
       try {
@@ -247,18 +260,16 @@ export default function WorkoutComplete() {
           ))}
         </div>
 
-        {/* Post-fatigue dial — only for preset sessions that will be synced */}
-        {isPresetMode && activeWorkoutId && (
-          <div
-            className="w-full text-left rounded-2xl px-4 py-4"
-            style={{
-              background: 'rgba(35,24,38,0.8)',
-              border:     '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            <FatigueDial value={postFatigue} onChange={setPostFatigue} />
-          </div>
-        )}
+        {/* Post-workout RPE dial — always shown to feed the fatigue engine */}
+        <div
+          className="w-full text-left rounded-2xl px-4 py-4"
+          style={{
+            background: 'rgba(35,24,38,0.8)',
+            border:     '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <FatigueDial value={postFatigue} onChange={setPostFatigue} />
+        </div>
 
         {/* Sync note — only shown for preset sessions */}
         {isPresetMode && activeWorkoutId && (

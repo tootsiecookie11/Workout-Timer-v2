@@ -76,6 +76,17 @@ export async function triggerBackgroundSync() {
   await set(SYNC_QUEUE_KEY, failedItems);
 }
 
+// ── Queue introspection ───────────────────────────────────────────────────────
+
+/**
+ * Returns the number of sessions currently sitting in the offline sync queue.
+ * Used by the UI to show a "X pending" badge when the device is offline.
+ */
+export async function getSyncQueueCount(): Promise<number> {
+  const queue = (await get<SessionResult[]>(SYNC_QUEUE_KEY)) || [];
+  return queue.length;
+}
+
 // Automatically bind to online recovery
 if (typeof window !== 'undefined') {
   window.addEventListener('online', triggerBackgroundSync);

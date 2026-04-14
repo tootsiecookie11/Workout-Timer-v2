@@ -1,7 +1,10 @@
 import { Hono } from 'hono';
 import { NotionService } from './notion';
+import { supabaseAuth } from './supabaseAuth';
+import type { SupabaseAuthBindings } from './supabaseAuth';
+import { parseDSL, DSLError } from './dslParser';
 
-type Bindings = {
+type Bindings = SupabaseAuthBindings & {
   // KV, D1, or other Cloudflare bindings go here
   // SESSIONS_DATABASE_ID?: string;  (could be env var via wrangler.toml)
 };
@@ -252,6 +255,54 @@ app.get('/api/program/:id/schedule', async (c) => {
   } catch (err: any) {
     console.error('[program/schedule] Error:', err);
     return c.json({ error: 'Failed to fetch program schedule', details: err.message }, 500);
+  }
+});
+
+// ─── POST /api/parse-dsl ──────────────────────────────────────────────────────
+// Parse a DSL condition string server-side and return the typed ASTNode.
+// All parsing logic runs here so untrusted DSL strings never reach the client
+// evaluator. (PRD §5.9)
+//
+// Required headers:
+//   Authorization: Bearer <supabase_jwt>
+//
+// Body (JSON):
+//   dsl   string   A DSL condition expression, e.g. "reps >= 5 && round <= 3"
+//
+// Response 200:
+//   { ast: ASTNode }
+//
+// Response 422 (parse error):
+//   { error: string, pretty: string, span: { start: number, end: number } }
+//
+// Response 401 (auth failure):
+//   { error: string }
+
+app.post('/api/parse-dsl', supabaseAuth, async (c) => {
+  let body: { dsl?: unknown };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body.' }, 400);
+  }
+
+  const { dsl } = body;
+  if (typeof dsl !== 'string' || !dsl.trim()) {
+    return c.json({ error: 'Missing or empty "dsl" field (must be a non-empty string).' }, 400);
+  }
+
+  try {
+    const ast = parseDSL(dsl);
+    return c.json({ ast });
+  } catch (err) {
+    if (err instanceof DSLError) {
+      return c.json(
+        { error: err.message, pretty: err.pretty(), span: err.span },
+        422,
+      );
+    }
+    console.error('[parse-dsl] Unexpected error:', err);
+    return c.json({ error: 'Internal server error while parsing DSL.' }, 500);
   }
 });
 

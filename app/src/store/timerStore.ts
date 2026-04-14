@@ -4,6 +4,8 @@ import { GraphEngine } from '../engine/graphEngine';
 import { audioEngine } from '../engine/audioEngine';
 import { useSettingsStore, TRANSITION_DISMISS_MS } from './settingsStore';
 import { generateQueue, generateQueueFromCustom } from '../engine/queueGenerator';
+import { calculateFatigueScore } from '../engine/fatigueEngine';
+import type { SessionRecord } from '../engine/fatigueEngine';
 import type {
   TimerMode,
   EngineState,
@@ -16,6 +18,33 @@ import type {
   CountdownTickPayload,
 } from '../engine/types';
 import type { WorkoutGraph, EvalContext, GraphChoiceRequiredPayload } from '../engine/dslTypes';
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+
+const HISTORY_KEY = 'galawgaw_session_history';
+
+function loadSessionHistory(): SessionRecord[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as SessionRecord[]) : [];
+  } catch { return []; }
+}
+
+function saveSessionHistory(history: SessionRecord[]): void {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch {}
+}
+
+/** Reduce all exercise block duration_ms by a factor (default 0.85 = 15% less). */
+function applySmartAdjust(blocks: WorkoutBlock[], factor = 0.85): WorkoutBlock[] {
+  return blocks.map((b) => ({
+    ...b,
+    duration_ms: b.duration_ms ? Math.round(b.duration_ms * factor) : b.duration_ms,
+    children:    b.children    ? applySmartAdjust(b.children, factor) : b.children,
+  }));
+}
+
+// Compute initial values from persisted history once at module init.
+const _initialHistory = loadSessionHistory();
 
 // ─── Store Shape ──────────────────────────────────────────────────────────────
 
@@ -92,6 +121,12 @@ interface TimerState {
   /** Notion workout page id for the active preset session (used by sync). */
   activeWorkoutId: string | null;
 
+  // ── Session history (local persistence for fatigue engine) ─────────────
+  /** Up to 20 most-recent session records, persisted in localStorage. */
+  sessionHistory: SessionRecord[];
+  /** Append a completed-session record, recompute fatigueScore, and persist. */
+  recordSession: (record: SessionRecord) => void;
+
   // ─── Actions ─────────────────────────────────────────────────────────────
   setMode: (mode: TimerMode) => void;
 
@@ -107,7 +142,7 @@ interface TimerState {
 
   // Pre-workout readiness flow
   requestSessionStart: (blocks?: WorkoutBlock[], workoutId?: string) => void;
-  confirmReadiness: (readiness: number) => void;
+  confirmReadiness: (readiness: number, smartAdjust?: boolean) => void;
   dismissReadinessModal: () => void;
   pauseSession: () => void;
   resumeSession: () => void;
@@ -360,7 +395,6 @@ export const useTimerStore = create<TimerState>((set, get) => {
     sessionResult:     null,
     stepQueue:         [],
     evalContext:           null,
-    fatigueScore:          0,
     pendingChoice:         null,
     sessionStartedAt:      null,
     sessionWallElapsed_ms: null,
@@ -368,6 +402,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
     readinessModalVisible: false,
     pendingSessionBlocks:  null,
     activeWorkoutId:       null,
+    sessionHistory:        _initialHistory,
+    fatigueScore:          calculateFatigueScore(_initialHistory),
 
     // ── Mode ───────────────────────────────────────────────────────────────
     setMode: (mode) => {
@@ -454,10 +490,15 @@ export const useTimerStore = create<TimerState>((set, get) => {
       set({ readinessModalVisible: true, pendingSessionBlocks: blocks ?? null, activeWorkoutId: workoutId ?? null });
     },
 
-    confirmReadiness: (readiness: number) => {
-      const blocks = get().pendingSessionBlocks ?? undefined;
+    confirmReadiness: (readiness: number, smartAdjust?: boolean) => {
+      let blocks = get().pendingSessionBlocks ?? undefined;
+      const evalPatch: Partial<EvalContext> = { readiness };
+      if (smartAdjust && blocks) {
+        blocks = applySmartAdjust(blocks);
+        evalPatch.volume_modifier = 0.85;
+      }
       set({ readinessModalVisible: false, pendingSessionBlocks: null });
-      get().startSession(blocks, { readiness });
+      get().startSession(blocks, evalPatch);
     },
 
     dismissReadinessModal: () => {
@@ -561,6 +602,14 @@ export const useTimerStore = create<TimerState>((set, get) => {
     setFatigueScore: (score: number) => {
       set({ fatigueScore: score });
       // Also push into a live graph session context if running
+      _graphEngine?.updateEvalContext({ fatigue_score: score });
+    },
+
+    recordSession: (record: SessionRecord) => {
+      const history = [...get().sessionHistory, record].slice(-20);
+      saveSessionHistory(history);
+      const score = calculateFatigueScore(history);
+      set({ sessionHistory: history, fatigueScore: score });
       _graphEngine?.updateEvalContext({ fatigue_score: score });
     },
 

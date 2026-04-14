@@ -188,7 +188,9 @@ export class GraphEngine {
     this._waitingForChoice = false;
     this.evalCtx = { ...this.evalCtx, user: answer };
 
-    const result = this._resolveEdge(this._currentNodeId);
+    // Pass skipUserPrompt=true so the second evaluation skips the prompt-trigger
+    // check and falls through to DSL condition matching instead.
+    const result = this._resolveEdge(this._currentNodeId, true);
     if (result.waiting) return; // still waiting (shouldn't normally happen)
 
     if (result.nextId === GRAPH_END) {
@@ -332,8 +334,12 @@ export class GraphEngine {
    * Returns the first edge whose condition is true (or unconditional).
    * Emits 'graph:branch' when a conditional edge is taken.
    * Emits 'graph:choice_required' and returns { waiting: true } for prompt edges.
+   *
+   * @param skipUserPrompt - When true (used by resolveChoice on second pass),
+   *   skip the userPrompt trigger and fall through to DSL condition evaluation.
+   *   This prevents an infinite re-prompt loop after the user has made a choice.
    */
-  private _resolveEdge(nodeId: string): { nextId: string; waiting: boolean } {
+  private _resolveEdge(nodeId: string, skipUserPrompt = false): { nextId: string; waiting: boolean } {
     const node = this.graph.nodes.get(nodeId);
     if (!node || node.edges.length === 0) return { nextId: GRAPH_END, waiting: false };
 
@@ -343,8 +349,8 @@ export class GraphEngine {
         return { nextId: edge.to, waiting: false };
       }
 
-      // User-prompt edge — ask UI before evaluating
-      if (edge.userPrompt) {
+      // User-prompt edge — ask UI before evaluating (skipped on post-choice re-evaluation)
+      if (edge.userPrompt && !skipUserPrompt) {
         const promptEdges = node.edges.filter(e => e.userPrompt);
         const payload: GraphChoiceRequiredPayload = {
           node_id: nodeId,
