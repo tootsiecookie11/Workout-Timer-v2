@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { TimerMode } from '../engine/types';
 import { useTimerStore } from '../store/timerStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { connectNotionOAuth } from '../lib/supabase';
 import SettingsDrawer from './SettingsDrawer';
 
@@ -21,7 +22,8 @@ export default function Navigation() {
 
   const locked = engineState === 'ACTIVE' || engineState === 'PAUSED';
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const isSettingsOpen = useSettingsStore((s) => s.isSettingsOpen);
+  const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
 
   const handleConnectNotion = async () => {
     try {
@@ -102,7 +104,7 @@ export default function Navigation() {
 
           {/* Settings gear */}
           <button
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => setIsSettingsOpen(true)}
             aria-label="Open settings"
             style={{
               display:        'flex',
@@ -112,10 +114,10 @@ export default function Navigation() {
               height:         '36px',
               borderRadius:   '10px',
               border:         '1px solid rgba(255,255,255,0.08)',
-              background:     settingsOpen
+              background:     isSettingsOpen
                 ? 'rgba(169,229,187,0.1)'
                 : 'rgba(255,255,255,0.04)',
-              color:          settingsOpen
+              color:          isSettingsOpen
                 ? 'var(--color-brand-primary)'
                 : 'rgba(237,228,250,0.5)',
               cursor:         'pointer',
@@ -124,14 +126,14 @@ export default function Navigation() {
               flexShrink:     0,
             }}
             onMouseEnter={(e) => {
-              if (!settingsOpen) {
+              if (!isSettingsOpen) {
                 const b = e.currentTarget as HTMLButtonElement;
                 b.style.background = 'rgba(255,255,255,0.08)';
                 b.style.color      = 'var(--color-brand-text)';
               }
             }}
             onMouseLeave={(e) => {
-              if (!settingsOpen) {
+              if (!isSettingsOpen) {
                 const b = e.currentTarget as HTMLButtonElement;
                 b.style.background = 'rgba(255,255,255,0.04)';
                 b.style.color      = 'rgba(237,228,250,0.5)';
@@ -146,7 +148,7 @@ export default function Navigation() {
               aria-hidden
               style={{
                 transition: 'transform 400ms cubic-bezier(0.34,1.56,0.64,1)',
-                transform:  settingsOpen ? 'rotate(60deg)' : 'rotate(0deg)',
+                transform:  isSettingsOpen ? 'rotate(60deg)' : 'rotate(0deg)',
               }}
             >
               <path d={GEAR_ICON} />
@@ -155,7 +157,7 @@ export default function Navigation() {
         </div>
       </header>
 
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDrawer open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </>
   );
 }

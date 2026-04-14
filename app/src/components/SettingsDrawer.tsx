@@ -654,6 +654,8 @@ export default function SettingsDrawer({ open, onClose }: Props) {
   const setEnableVoiceCues    = useSettingsStore((s) => s.setEnableVoiceCues);
   const setEnableHaptics      = useSettingsStore((s) => s.setEnableHaptics);
   const setTransitionDuration = useSettingsStore((s) => s.setTransitionDuration);
+  const settingsScrollTarget  = useSettingsStore((s) => s.settingsScrollTarget);
+  const setSettingsScrollTarget = useSettingsStore((s) => s.setSettingsScrollTarget);
 
   // Close on Escape
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -667,8 +669,23 @@ export default function SettingsDrawer({ open, onClose }: Props) {
   // Lock body scroll while open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
+    
+    // Handle targeted scrolling when drawer opens
+    if (open && settingsScrollTarget) {
+      // Small timeout to ensure the drawer animation has started/layout is ready
+      const timer = setTimeout(() => {
+        const element = document.getElementById(settingsScrollTarget);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Clear the target after scrolling so it doesn't re-scroll on next open
+          setSettingsScrollTarget(null);
+        }
+      }, 350); // Matches drawer animation duration slightly
+      return () => clearTimeout(timer);
+    }
+
     return () => { document.body.style.overflow = ''; };
-  }, [open]);
+  }, [open, settingsScrollTarget, setSettingsScrollTarget]);
 
   return (
     <>
@@ -851,8 +868,10 @@ export default function SettingsDrawer({ open, onClose }: Props) {
           <Divider />
 
           {/* ── Notion Vault section ──────────────────────────────────────── */}
-          <SectionLabel>Notion Vault</SectionLabel>
-          <NotionVaultSection />
+          <div id="notion-vault">
+            <SectionLabel>Notion Vault</SectionLabel>
+            <NotionVaultSection />
+          </div>
 
         </div>
 

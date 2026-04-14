@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTimerStore } from '../store/timerStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useProgramEngine } from '../hooks/useProgramEngine';
 import { buildGraph } from '../engine/graphBuilder';
 import { classifyFatigue } from '../engine/fatigueEngine';
@@ -505,7 +506,7 @@ const PROGRAM_STEPS = [
   {
     n: '01',
     title: 'Open your Notion workspace',
-    body:  'Navigate to your Programs database — the one linked in your .env config.',
+    body:  'Navigate to your Programs database within your duplicated Galawgaw template.',
   },
   {
     n: '02',
@@ -691,11 +692,12 @@ export default function ProgramDashboard() {
           <GateCard
             icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none"
               stroke="rgba(169,229,187,0.65)" strokeWidth="2" strokeLinecap="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <path d="M3 9h18M9 21V9"/>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>}
-            title="Programs not configured"
-            body="Add VITE_NOTION_PROGRAMS_DB_ID and VITE_NOTION_PROGRAM_DAYS_DB_ID to your .env file to enable program tracking."
+            title="Notion Vault Required"
+            body="To track your progress via Notion, you need to link your program data in the Settings."
+            cta="Open Notion Vault"
+            onCta={() => useSettingsStore.getState().openSettings('notion-vault')}
           />
         </div>
       </main>

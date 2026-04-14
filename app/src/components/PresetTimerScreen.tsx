@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTimerStore } from '../store/timerStore';
 import { useNotionWorkouts } from '../hooks/useNotionWorkouts';
+import { useSettingsStore } from '../store/settingsStore';
 import type { WorkoutSummary, WorkoutFatigue } from '../hooks/useNotionWorkouts';
 import { classifyFatigue } from '../engine/fatigueEngine';
 
@@ -207,19 +208,24 @@ function WorkoutCard({ workout, fatigue, isSelected, isLaunching, onClick }: Wor
 // ─── Connect-Notion placeholder ───────────────────────────────────────────────
 
 function ConnectView({ onConnect, isNoConfig }: { onConnect: () => void; isNoConfig: boolean }) {
+  const openSettings = useSettingsStore((s) => s.openSettings);
+
   return (
-    <div className="w-full max-w-md flex flex-col items-center gap-8 text-center relative">
-      {/* Notion icon */}
-      <div
-        className="w-20 h-20 rounded-3xl flex items-center justify-center"
-        style={{ background: 'rgba(35,24,38,0.9)', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3"  y="3"  width="7" height="7" rx="1" fill="rgba(237,228,250,0.15)" />
-          <rect x="14" y="3"  width="7" height="7" rx="1" fill="rgba(237,228,250,0.15)" />
-          <rect x="14" y="14" width="7" height="7" rx="1" fill="rgba(237,228,250,0.15)" />
-          <rect x="3"  y="14" width="7" height="7" rx="1" fill="rgba(88,166,255,0.35)"  />
-        </svg>
+    <div className="w-full max-w-md flex flex-col items-center gap-8 text-center relative px-2">
+      {/* Notion icon / Glow */}
+      <div className="relative">
+        <div className="absolute inset-0 blur-3xl opacity-20 bg-brand-primary" />
+        <div
+          className="w-20 h-20 rounded-3xl flex items-center justify-center relative"
+          style={{ background: 'rgba(35,24,38,0.9)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3"  y="3"  width="7" height="7" rx="1.5" fill="rgba(88,166,255,0.15)" />
+            <rect x="14" y="3"  width="7" height="7" rx="1.5" fill="rgba(88,166,255,0.15)" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" fill="rgba(88,166,255,0.15)" />
+            <rect x="3"  y="14" width="7" height="7" rx="1.5" fill="var(--color-brand-primary)"  fillOpacity="0.4" />
+          </svg>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -227,31 +233,58 @@ function ConnectView({ onConnect, isNoConfig }: { onConnect: () => void; isNoCon
           className="font-display text-2xl font-bold tracking-tight"
           style={{ color: 'var(--color-brand-text)' }}
         >
-          {isNoConfig ? 'Configure Notion' : 'Connect Your Notion'}
+          {isNoConfig ? 'Vault Connection Required' : 'Connect Your Notion'}
         </h1>
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--color-brand-text-muted)' }}>
+        <p className="text-sm leading-relaxed max-w-[280px] mx-auto" style={{ color: 'var(--color-brand-text-muted)' }}>
           {isNoConfig
-            ? 'Set VITE_WORKER_URL and VITE_NOTION_WORKOUTS_DB_ID in your .env file, then restart the dev server.'
+            ? 'Set up your dynamic workout engine by linking your personal Notion database IDs.'
             : 'Preset workouts live in your Notion workspace. Connect your account to sync them here automatically.'}
         </p>
       </div>
 
       {isNoConfig ? (
-        <div
-          className="w-full rounded-2xl px-5 py-4 text-left"
-          style={{
-            background: 'rgba(88,166,255,0.06)',
-            border:     '1px solid rgba(88,166,255,0.18)',
-            fontFamily: 'monospace',
-            fontSize:   '0.72rem',
-            color:      'rgba(88,166,255,0.8)',
-            lineHeight: 1.8,
-          }}
-        >
-          VITE_WORKER_URL=https://your-worker.workers.dev<br />
-          VITE_NOTION_WORKOUTS_DB_ID=&lt;database id&gt;<br />
-          VITE_NOTION_BLOCKS_DB_ID=&lt;database id&gt;<br />
-          VITE_NOTION_SESSIONS_DB_ID=&lt;database id&gt;
+        <div className="w-full space-y-4">
+          <div className="w-full space-y-2">
+            {[
+              { step: '01', label: 'Duplicate the Notion Template' },
+              { step: '02', label: 'Copy your Database IDs'      },
+              { step: '03', label: 'Paste them into the Vault below'   },
+            ].map(({ step, label }) => (
+              <div
+                key={step}
+                className="flex items-center gap-4 rounded-xl px-4 py-3 text-left"
+                style={{
+                  background: 'rgba(35,24,38,0.7)',
+                  border:     '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <span
+                  className="font-display text-xs font-bold tabular-nums"
+                  style={{ color: 'var(--color-brand-primary)', opacity: 0.6 }}
+                >
+                  {step}
+                </span>
+                <span className="text-sm" style={{ color: 'var(--color-brand-text)' }}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => openSettings('notion-vault')}
+            className="w-full py-4 rounded-2xl font-bold text-sm uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-3"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border:     '1px solid rgba(255,255,255,0.1)',
+              color:      'var(--color-brand-text)',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+            </svg>
+            Open Notion Vault
+          </button>
         </div>
       ) : (
         <>
@@ -290,7 +323,7 @@ function ConnectView({ onConnect, isNoConfig }: { onConnect: () => void; isNoCon
             style={{
               background: 'var(--color-brand-primary)',
               color:      '#120b18',
-              boxShadow:  '0 0 36px rgba(169,229,187,0.2)',
+              boxShadow:  '0 0-36px rgba(169,229,187,0.2)',
             }}
           >
             Connect Notion
@@ -306,8 +339,8 @@ function ConnectView({ onConnect, isNoConfig }: { onConnect: () => void; isNoCon
 const NOTION_STEPS = [
   {
     n: '01',
-    title: 'Open your Notion Workouts database',
-    body: 'Navigate to the database linked by VITE_NOTION_WORKOUTS_DB_ID in your .env file.',
+    title: 'Open your Notion workspace',
+    body: 'Navigate to the Workouts database within your duplicated Galawgaw template.',
   },
   {
     n: '02',
@@ -390,20 +423,17 @@ function NoWorkoutsGuide({ onRefresh }: { onRefresh: () => void }) {
         ))}
       </div>
 
-      {/* Env-var hint */}
+      {/* Vault indicator */}
       <div
-        className="rounded-2xl px-4 py-3 text-left"
+        className="rounded-2xl px-4 py-3 text-center"
         style={{
           background:  'rgba(88,166,255,0.05)',
           border:      '1px solid rgba(88,166,255,0.15)',
-          fontFamily:  'monospace',
-          fontSize:    '0.7rem',
           color:       'rgba(88,166,255,0.7)',
-          lineHeight:  1.9,
+          fontSize:    '0.75rem',
         }}
       >
-        VITE_NOTION_WORKOUTS_DB_ID=&lt;database id&gt;<br />
-        VITE_NOTION_BLOCKS_DB_ID=&lt;database id&gt;
+        Current vault verified. Syncing from live Notion data.
       </div>
 
       {/* Refresh CTA */}

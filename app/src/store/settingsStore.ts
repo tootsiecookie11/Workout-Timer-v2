@@ -55,6 +55,10 @@ export interface SettingsState {
    * non-empty, so the app works without any .env configuration.
    */
   notionConfig:        NotionConfig;
+  /** Whether the global settings drawer is currently open. (Transient state) */
+  isSettingsOpen:      boolean;
+  /** Optional ID of an element to scroll to within the drawer once it opens. */
+  settingsScrollTarget: string | null;
 }
 
 export interface SettingsActions {
@@ -67,6 +71,10 @@ export interface SettingsActions {
   setBlocksDatabaseId:      (id: string)             => void;
   setProgramsDatabaseId:    (id: string)             => void;
   setSessionsDatabaseId:    (id: string)             => void;
+  setIsSettingsOpen:        (open: boolean)          => void;
+  setSettingsScrollTarget:  (id: string | null)     => void;
+  /** Helper to open settings and optionally target a section */
+  openSettings:             (target?: string)        => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -91,6 +99,8 @@ export const useSettingsStore = create<SettingsStore>()(
           programsDatabaseId: '',
           sessionsDatabaseId: '',
         },
+        isSettingsOpen: false,
+        settingsScrollTarget: null,
 
         // ── Actions ─────────────────────────────────────────────────────────
         setEnableBeeps:        (v)  => set({ enableBeeps: v }),
@@ -107,6 +117,12 @@ export const useSettingsStore = create<SettingsStore>()(
           set((s) => ({ notionConfig: { ...s.notionConfig, programsDatabaseId: id } })),
         setSessionsDatabaseId: (id) =>
           set((s) => ({ notionConfig: { ...s.notionConfig, sessionsDatabaseId: id } })),
+        setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
+        setSettingsScrollTarget: (id) => set({ settingsScrollTarget: id }),
+        openSettings: (target) => set({ 
+          isSettingsOpen: true, 
+          settingsScrollTarget: target || null 
+        }),
       }),
       {
         name:    STORAGE_KEY,
